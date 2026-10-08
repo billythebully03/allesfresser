@@ -294,11 +294,90 @@ body,
   opacity: 1;
 }
 
-.sidebar-open-anchor {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 10;
+.sidebar-open-anchor-static {
+  display: flex;
+  align-items: center;
+  margin-right: 4px;
+}
+
+.chapter-tabs-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 0 4px;
+  height: 34px;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.chapter-tabs-list {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+  min-width: 0;
+}
+
+.chapter-tabs-list::-webkit-scrollbar {
+  display: none;
+}
+
+.chapter-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  height: 32px;
+  border-radius: 8px 8px 0 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-ios);
+  white-space: nowrap;
+  transition: background-color 0.14s ease, color 0.14s ease;
+  animation: tabSlideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.chapter-tab:hover {
+  background: rgba(0, 0, 0, 0.07);
+  color: var(--text-main);
+}
+
+.chapter-tab.is-active {
+  background: var(--bg-workspace);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.chapter-tab-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.chapter-tab.is-active .chapter-tab-icon {
+  opacity: 1;
+}
+
+.chapter-tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes tabSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .sidebar-nav {
@@ -793,10 +872,12 @@ body,
   overflow: hidden;
   min-width: 0;
   flex-shrink: 0;
+  background-color: var(--bg-workspace);
 }
 
 .workspace-pane-secondary {
   transform-origin: top right;
+  background-color: var(--bg-workspace);
 }
 
 .workspace-pane-divider {
@@ -832,9 +913,7 @@ body,
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-workspace);
-  padding: 16px 56px 20px 56px;
-  margin-top: 36px;
-  margin-bottom: 38px;
+  padding: 24px 44px 20px 44px;
   scrollbar-width: thin;
 }
 
@@ -905,8 +984,8 @@ body,
 .editor-margin-gutter {
   position: absolute;
   top: 0;
-  left: -44px;
-  width: 32px;
+  left: -34px;
+  width: 24px;
   height: 100%;
   user-select: none;
   pointer-events: none;
@@ -921,7 +1000,7 @@ body,
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  transition: opacity 0.15s ease;
+  transition: transform 0.14s cubic-bezier(0.2, 0, 0, 1), opacity 0.14s ease;
   will-change: transform, opacity;
 }
 
