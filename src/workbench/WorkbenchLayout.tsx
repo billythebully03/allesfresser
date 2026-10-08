@@ -33,6 +33,7 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
 export function WorkbenchLayout() {
   const [sidebarWidth, setSidebarWidth] = useState(250)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isRailEnabled, setIsRailEnabled] = useState(false)
   const [activeTab, setActiveTab] = useState<'canvas' | 'settings'>('canvas')
   const [isSplit, setIsSplit] = useState(false)
   const [focusedPane, setFocusedPane] = useState<'primary' | 'secondary'>('primary')
@@ -41,12 +42,18 @@ export function WorkbenchLayout() {
   const [animationMode, setAnimationMode] = useState<'instant' | 'smooth'>('smooth')
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
   const [primaryPageId, setPrimaryPageId] = useState<string>('pg-1')
-  const [secondaryPageId, setSecondaryPageId] = useState<string>('pg-2')
+  const [secondaryPageId, setSecondaryPageId] = useState<string | null>(null)
+  const [secondaryDraft, setSecondaryDraft] = useState<PageItem | null>(null)
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
-  const createdPageIdForSplitRef = useRef<string | null>(null)
   const isDraggingDividerRef = useRef(false)
   const islandRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (sidebarWidth >= 285) {
+      setIsRailEnabled(true)
+    }
+  }, [sidebarWidth])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -81,18 +88,27 @@ export function WorkbenchLayout() {
   }
 
   let secondaryPage: PageItem | undefined
-  for (const chapter of chapters) {
-    const p = chapter.pages.find((page) => page.id === secondaryPageId)
-    if (p) {
-      secondaryPage = p
-      break
+  if (secondaryPageId) {
+    for (const chapter of chapters) {
+      const p = chapter.pages.find((page) => page.id === secondaryPageId)
+      if (p) {
+        secondaryPage = p
+        break
+      }
     }
   }
 
-  if (!secondaryPage && primaryChapter) {
+  if (!secondaryPage && !secondaryDraft && primaryChapter && primaryPageIndex !== -1) {
     if (primaryPageIndex + 1 < primaryChapter.pages.length) {
       secondaryPage = primaryChapter.pages[primaryPageIndex + 1]
     }
+  }
+
+  const effectiveSecondaryPage: PageItem = secondaryPage || secondaryDraft || {
+    id: 'draft-page',
+    title: '',
+    content: '',
+    updatedAt: Date.now(),
   }
 
   let nextPageForOverscroll: PageItem | null = null
@@ -110,49 +126,25 @@ export function WorkbenchLayout() {
     }
   }
 
-  const ensureSecondaryPage = () => {
-    if (!secondaryPage && primaryChapter) {
-      const newPageId = `pg-${Date.now()}`
-      const newPage: PageItem = {
-        id: newPageId,
-        title: '',
-        content: '',
-        updatedAt: Date.now(),
+  const ensureSecondaryDraft = () => {
+    if (primaryChapter && !secondaryPage && !secondaryDraft) {
+      const isNextAvailable = primaryPageIndex + 1 < primaryChapter.pages.length
+      if (isNextAvailable) {
+        setSecondaryPageId(primaryChapter.pages[primaryPageIndex + 1].id)
+      } else {
+        setSecondaryDraft({
+          id: `pg-${Date.now()}`,
+          title: '',
+          content: '',
+          updatedAt: Date.now(),
+        })
       }
-      createdPageIdForSplitRef.current = newPageId
-      setSecondaryPageId(newPageId)
-      setChapters((prev) =>
-        prev.map((ch) =>
-          ch.id === primaryChapter?.id
-            ? { ...ch, pages: [...ch.pages, newPage] }
-            : ch,
-        ),
-      )
     }
   }
 
-  const cleanupEmptyAutoCreatedPage = () => {
-    const targetId = createdPageIdForSplitRef.current
-    if (!targetId) return
-
-    setChapters((prev) =>
-      prev.map((ch) => {
-        const found = ch.pages.find((p) => p.id === targetId)
-        if (found && !found.title.trim() && !found.content.trim()) {
-          return {
-            ...ch,
-            pages: ch.pages.filter((p) => p.id !== targetId),
-          }
-        }
-        return ch
-      }),
-    )
-    createdPageIdForSplitRef.current = null
-  }
-
-  const handleCornerDragProgress = (deltaX: number, isDragging: boolean) => {
+  const handleCornerDragProgress = (deltaX: number, _isDragging: boolean) => {
     setAnimationMode('instant')
-    ensureSecondaryPage()
+    ensureSecondaryDraft()
     if (!islandRef.current) return
     const containerWidth = islandRef.current.clientWidth
     const targetSecondaryWidthPx = isSplit
@@ -164,8 +156,8 @@ export function WorkbenchLayout() {
     const currentLeft = ((containerWidth - clampedSecondaryWidth) / containerWidth) * 100
     setLeftPercent(currentLeft)
 
-    if (!isDragging && currentLeft >= 99) {
-      cleanupEmptyAutoCreatedPage()
+    if (currentLeft >= 99 && secondaryDraft) {
+      setSecondaryDraft(null)
     }
   }
 
@@ -176,7 +168,7 @@ export function WorkbenchLayout() {
       setLeftPercent(savedSplitPercent)
     } else {
       setLeftPercent(100)
-      cleanupEmptyAutoCreatedPage()
+      setSecondaryDraft(null)
     }
   }
 
@@ -184,13 +176,13 @@ export function WorkbenchLayout() {
     setAnimationMode('instant')
     const nextState = !isSplit
     if (nextState) {
-      ensureSecondaryPage()
+      ensureSecondaryDraft()
       setIsSplit(true)
       setLeftPercent(savedSplitPercent)
     } else {
       setIsSplit(false)
       setLeftPercent(100)
-      cleanupEmptyAutoCreatedPage()
+      setSecondaryDraft(null)
     }
   }
 
@@ -244,20 +236,51 @@ export function WorkbenchLayout() {
     updatePage(primaryPage.id, { content: newContent })
   }
 
-  const handleSecondaryTitleChange = (newTitle: string) => {
-    if (!secondaryPage) return
-    if (createdPageIdForSplitRef.current === secondaryPage.id && newTitle.trim()) {
-      createdPageIdForSplitRef.current = null
+  const persistDraftIfNeeded = (draftUpdate: Partial<PageItem>) => {
+    if (secondaryDraft && primaryChapter) {
+      const persistedPage: PageItem = {
+        ...secondaryDraft,
+        ...draftUpdate,
+        updatedAt: Date.now(),
+      }
+      setChapters((prev) =>
+        prev.map((ch) =>
+          ch.id === primaryChapter?.id
+            ? { ...ch, pages: [...ch.pages, persistedPage] }
+            : ch,
+        ),
+      )
+      setSecondaryPageId(persistedPage.id)
+      setSecondaryDraft(null)
     }
-    updatePage(secondaryPage.id, { title: newTitle })
+  }
+
+  const handleSecondaryTitleChange = (newTitle: string) => {
+    if (secondaryDraft) {
+      if (newTitle.trim()) {
+        persistDraftIfNeeded({ title: newTitle })
+      } else {
+        setSecondaryDraft({ ...secondaryDraft, title: newTitle })
+      }
+      return
+    }
+    if (secondaryPage) {
+      updatePage(secondaryPage.id, { title: newTitle })
+    }
   }
 
   const handleSecondaryContentChange = (newContent: string) => {
-    if (!secondaryPage) return
-    if (createdPageIdForSplitRef.current === secondaryPage.id && newContent.trim()) {
-      createdPageIdForSplitRef.current = null
+    if (secondaryDraft) {
+      if (newContent.trim()) {
+        persistDraftIfNeeded({ content: newContent })
+      } else {
+        setSecondaryDraft({ ...secondaryDraft, content: newContent })
+      }
+      return
     }
-    updatePage(secondaryPage.id, { content: newContent })
+    if (secondaryPage) {
+      updatePage(secondaryPage.id, { content: newContent })
+    }
   }
 
   const handleRenameChapter = (chapterId: string, newTitle: string) => {
@@ -300,6 +323,7 @@ export function WorkbenchLayout() {
   const handleSelectPage = (_chapterId: string, pageId: string) => {
     if (isSplit) {
       if (focusedPane === 'secondary') {
+        setSecondaryDraft(null)
         setSecondaryPageId(pageId)
       } else {
         setPrimaryPageId(pageId)
@@ -328,6 +352,7 @@ export function WorkbenchLayout() {
     }
     setChapters((prev) => [...prev, newChapter])
     if (isSplit && focusedPane === 'secondary') {
+      setSecondaryDraft(null)
       setSecondaryPageId(newPageId)
     } else {
       setPrimaryPageId(newPageId)
@@ -349,6 +374,7 @@ export function WorkbenchLayout() {
       ),
     )
     if (isSplit && focusedPane === 'secondary') {
+      setSecondaryDraft(null)
       setSecondaryPageId(newPage.id)
     } else {
       setPrimaryPageId(newPage.id)
@@ -537,12 +563,17 @@ export function WorkbenchLayout() {
     : 0
 
   const secondaryWidth = 100 - leftPercent
-  const showRail = isSidebarOpen && sidebarWidth >= 285
-  const currentActivePageId = focusedPane === 'secondary' ? secondaryPageId : primaryPageId
+  const currentActivePageId = focusedPane === 'secondary'
+    ? (secondaryPageId || secondaryDraft?.id || '')
+    : primaryPageId
 
   return (
     <div className="workbench-root">
-      <div className={`tab-rail ${showRail ? 'is-visible' : ''}`}>
+      <div
+        className={`tab-rail ${isRailEnabled ? 'is-visible' : ''} ${
+          isSidebarOpen ? 'is-on-light' : 'is-on-dark'
+        }`}
+      >
         <button
           className={`tab-rail-btn ${activeTab === 'canvas' ? 'is-active' : ''}`}
           onClick={() => setActiveTab('canvas')}
@@ -695,7 +726,7 @@ export function WorkbenchLayout() {
               />
             </div>
 
-            {secondaryWidth > 0 && secondaryPage && (
+            {secondaryWidth > 0 && (
               <>
                 <div
                   className="workspace-pane-divider"
@@ -718,8 +749,8 @@ export function WorkbenchLayout() {
                   onClickCapture={() => setFocusedPane('secondary')}
                 >
                   <EditorArea
-                    title={secondaryPage.title}
-                    content={secondaryPage.content}
+                    title={effectiveSecondaryPage.title}
+                    content={effectiveSecondaryPage.content}
                     isFirstPageOfChapter={false}
                     onTitleChange={handleSecondaryTitleChange}
                     onContentChange={handleSecondaryContentChange}
