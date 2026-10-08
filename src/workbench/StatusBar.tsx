@@ -4,8 +4,8 @@ interface StatusBarProps {
 
 export function StatusBar({ wordCount }: StatusBarProps) {
   return (
-    <footer className="workbench-statusbar">
-      <span>Слов: {wordCount}</span>
+    <footer className="statusbar">
+      <span>{wordCount} слов</span>
     </footer>
   )
 }
