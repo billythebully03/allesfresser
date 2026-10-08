@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { DocumentItem } from '@/entities/document/types'
+import { Tooltip } from '@/shared/ui/Tooltip'
 import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
 import { StatusBar } from './StatusBar'
@@ -14,8 +15,21 @@ export function WorkbenchLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [documents, setDocuments] = useState<DocumentItem[]>(INITIAL_DOCS)
   const [activeId, setActiveId] = useState<string>('1')
+  const [cursor, setCursor] = useState({ line: 1, column: 1 })
 
   const activeDoc = documents.find((doc) => doc.id === activeId) ?? documents[0]
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        setIsSidebarOpen((prev) => !prev)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const handleContentChange = (newContent: string) => {
     setDocuments((prev) =>
@@ -25,6 +39,10 @@ export function WorkbenchLayout() {
           : doc,
       ),
     )
+  }
+
+  const handleCursorMove = (line: number, column: number) => {
+    setCursor({ line, column })
   }
 
   const wordCount = activeDoc.content.trim()
@@ -40,48 +58,58 @@ export function WorkbenchLayout() {
         onSelect={setActiveId}
         onToggle={() => setIsSidebarOpen(false)}
       />
-      <main className="workspace-surface">
-        {!isSidebarOpen && (
-          <button
-            className="sidebar-open-btn"
-            onClick={() => setIsSidebarOpen(true)}
-            aria-label="Показать меню"
-          >
-            <svg
-              className="icon-default"
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect width="18" height="18" x="3" y="3" rx="3" />
-              <path d="M9 3v18" />
-            </svg>
-            <svg
-              className="icon-hover"
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m9 18 6-6-6-6" />
-            </svg>
-          </button>
-        )}
-        <EditorArea
-          content={activeDoc.content}
-          onChange={handleContentChange}
-        />
-        <StatusBar wordCount={wordCount} />
-      </main>
+      <div className={`workspace-outer ${isSidebarOpen ? '' : 'is-full'}`}>
+        <main className="workspace-island">
+          {!isSidebarOpen && (
+            <div className="sidebar-open-anchor">
+              <Tooltip
+                label="Показать меню"
+                shortcut={{ mac: '⌘B', win: 'Ctrl+B' }}
+              >
+                <button
+                  className="sidebar-open-btn"
+                  onClick={() => setIsSidebarOpen(true)}
+                  aria-label="Показать меню"
+                >
+                  <svg
+                    className="icon-default"
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect width="18" height="18" x="3" y="3" rx="3" />
+                    <path d="M9 3v18" />
+                  </svg>
+                  <svg
+                    className="icon-hover"
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </div>
+          )}
+          <EditorArea
+            content={activeDoc.content}
+            onChange={handleContentChange}
+            onCursorMove={handleCursorMove}
+          />
+        </main>
+        <StatusBar wordCount={wordCount} cursor={cursor} />
+      </div>
     </div>
   )
 }
