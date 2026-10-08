@@ -3,6 +3,7 @@ import {
   SyntheticEvent,
   useRef,
   KeyboardEvent,
+  MouseEvent,
   useEffect,
   useState,
 } from 'react'
@@ -16,9 +17,10 @@ interface EditorAreaProps {
   onCursorMove?: (line: number, column: number) => void
 }
 
-const LINE_HEIGHT = 32
-const MAX_LINES = 3
-const MAX_TITLE_HEIGHT = LINE_HEIGHT * MAX_LINES
+const LINE_HEIGHT_PX = 26.4
+const TITLE_LINE_HEIGHT = 32
+const MAX_TITLE_LINES = 3
+const MAX_TITLE_HEIGHT = TITLE_LINE_HEIGHT * MAX_TITLE_LINES
 
 export function EditorArea({
   title,
@@ -48,9 +50,20 @@ export function EditorArea({
     el.style.height = `${newHeight}px`
   }
 
+  const adjustContentHeight = () => {
+    const el = contentTextareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }
+
   useEffect(() => {
     adjustTitleHeight()
   }, [title])
+
+  useEffect(() => {
+    adjustContentHeight()
+  }, [content])
 
   const handleTitleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
@@ -96,12 +109,59 @@ export function EditorArea({
     updateCursorPosition(e)
   }
 
-  const totalLines = Math.max(1, content.split('\n').length)
-  const lineNumbers = Array.from({ length: totalLines }, (_, idx) => idx + 1)
+  const handleContainerClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (e.target === contentTextareaRef.current || e.target === titleTextareaRef.current) {
+      return
+    }
+
+    const textarea = contentTextareaRef.current
+    if (!textarea) return
+
+    const rect = textarea.getBoundingClientRect()
+    const clickY = e.clientY - rect.top
+    if (clickY < 0) return
+
+    const targetLine = Math.max(1, Math.floor(clickY / LINE_HEIGHT_PX) + 1)
+    const lines = content.split('\n')
+    const currentTotalLines = lines.length
+
+    if (targetLine > currentTotalLines) {
+      const extraLinesNeeded = targetLine - currentTotalLines
+      const newContent = content + '\n'.repeat(extraLinesNeeded)
+      onContentChange(newContent)
+      setActiveLine(targetLine)
+
+      requestAnimationFrame(() => {
+        if (contentTextareaRef.current) {
+          contentTextareaRef.current.focus()
+          const pos = newContent.length
+          contentTextareaRef.current.setSelectionRange(pos, pos)
+        }
+      })
+    } else {
+      let charPos = 0
+      for (let i = 0; i < targetLine - 1; i++) {
+        charPos += lines[i].length + 1
+      }
+      charPos += lines[targetLine - 1].length
+
+      textarea.focus()
+      textarea.setSelectionRange(charPos, charPos)
+      setActiveLine(targetLine)
+    }
+  }
+
+  const visibleLines: number[] = []
+  for (let offset = -4; offset <= 4; offset++) {
+    const lineNum = activeLine + offset
+    if (lineNum >= 1) {
+      visibleLines.push(lineNum)
+    }
+  }
 
   return (
     <div ref={viewportRef} className="editor-viewport">
-      <div className="editor-inner-flow">
+      <div className="editor-inner-flow" onClick={handleContainerClick}>
         <div className="editor-container">
           <textarea
             ref={titleTextareaRef}
@@ -118,18 +178,18 @@ export function EditorArea({
             }
             spellCheck={false}
           />
-          <div className="editor-body-with-gutter">
-            <div className="editor-line-gutter" aria-hidden="true">
-              {lineNumbers.map((lineNum) => {
+
+          <div className="editor-body-area">
+            <div className="editor-floating-gutter" aria-hidden="true">
+              {visibleLines.map((lineNum) => {
                 const distance = Math.abs(lineNum - activeLine)
-                if (distance > 3) return null
-
                 let opacity = 1
-                if (distance === 1) opacity = 0.65
-                else if (distance === 2) opacity = 0.35
-                else if (distance === 3) opacity = 0.15
+                if (distance === 1) opacity = 0.75
+                else if (distance === 2) opacity = 0.50
+                else if (distance === 3) opacity = 0.25
+                else if (distance === 4) opacity = 0.10
 
-                const topOffset = (lineNum - 1) * 26.4
+                const topOffset = (lineNum - 1) * LINE_HEIGHT_PX
 
                 return (
                   <div
@@ -149,6 +209,7 @@ export function EditorArea({
                 )
               })}
             </div>
+
             <textarea
               ref={contentTextareaRef}
               className="editor-textarea"
