@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, PointerEvent } from 'react'
-import { ChapterItem, PageItem } from '@/entities/document/types'
+import { ChapterItem, PageItem, TrashItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { SplitCornerHandle } from './SplitCornerHandle'
 import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
 import { StatusBar } from './StatusBar'
+import { TrashModal } from './TrashModal'
 
 const INITIAL_CHAPTERS: ChapterItem[] = [
   {
@@ -30,6 +31,7 @@ export function WorkbenchLayout() {
   const [savedSplitPercent, setSavedSplitPercent] = useState(50)
   const [animationMode, setAnimationMode] = useState<'instant' | 'smooth'>('smooth')
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
+  const [trashItems, setTrashItems] = useState<TrashItem[]>([])
   const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
   const createdPageIdForSplitRef = useRef<string | null>(null)
@@ -330,6 +332,20 @@ export function WorkbenchLayout() {
   }
 
   const handleDeleteChapter = (chapterId: string) => {
+    const targetChapter = chapters.find((ch) => ch.id === chapterId)
+    if (targetChapter) {
+      setTrashItems((prev) => [
+        {
+          id: `trash-${Date.now()}`,
+          type: 'chapter',
+          title: targetChapter.title,
+          deletedAt: Date.now(),
+          chapterData: targetChapter,
+        },
+        ...prev,
+      ])
+    }
+
     setChapters((prev) => {
       const remaining = prev.filter((ch) => ch.id !== chapterId)
       if (remaining.length === 0) {
@@ -386,6 +402,22 @@ export function WorkbenchLayout() {
   }
 
   const handleDeletePage = (chapterId: string, pageId: string) => {
+    const parent = chapters.find((ch) => ch.id === chapterId)
+    const pageToDelete = parent?.pages.find((p) => p.id === pageId)
+    if (pageToDelete) {
+      setTrashItems((prev) => [
+        {
+          id: `trash-${Date.now()}`,
+          type: 'page',
+          title: pageToDelete.title,
+          deletedAt: Date.now(),
+          chapterId,
+          pageData: pageToDelete,
+        },
+        ...prev,
+      ])
+    }
+
     setChapters((prev) =>
       prev.map((ch) => {
         if (ch.id !== chapterId) return ch
@@ -408,6 +440,45 @@ export function WorkbenchLayout() {
         return { ...ch, pages: remainingPages }
       }),
     )
+  }
+
+  const handleRestoreTrashItem = (item: TrashItem) => {
+    setTrashItems((prev) => prev.filter((i) => i.id !== item.id))
+
+    if (item.type === 'chapter') {
+      setChapters((prev) => [...prev, item.chapterData])
+      if (item.chapterData.pages[0]) {
+        setActivePageId(item.chapterData.pages[0].id)
+      }
+    } else {
+      setChapters((prev) => {
+        const chapterExists = prev.some((c) => c.id === item.chapterId)
+        if (chapterExists) {
+          return prev.map((c) =>
+            c.id === item.chapterId
+              ? { ...c, pages: [...c.pages, item.pageData] }
+              : c,
+          )
+        }
+        const restoredChapter: ChapterItem = {
+          id: item.chapterId,
+          title: 'Восстановленная глава',
+          isOpen: true,
+          updatedAt: Date.now(),
+          pages: [item.pageData],
+        }
+        return [...prev, restoredChapter]
+      })
+      setActivePageId(item.pageData.id)
+    }
+  }
+
+  const handlePermanentlyDeleteTrashItem = (itemId: string) => {
+    setTrashItems((prev) => prev.filter((i) => i.id !== itemId))
+  }
+
+  const handleClearTrash = () => {
+    setTrashItems([])
   }
 
   const contentText = primaryPage ? primaryPage.content : ''
@@ -485,6 +556,13 @@ export function WorkbenchLayout() {
             onDragProgress={handleCornerDragProgress}
             onSnap={handleCornerSnap}
             onInstantToggle={handleInstantToggle}
+          />
+
+          <TrashModal
+            items={trashItems}
+            onRestore={handleRestoreTrashItem}
+            onPermanentlyDelete={handlePermanentlyDeleteTrashItem}
+            onClearAll={handleClearTrash}
           />
 
           <div
