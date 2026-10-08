@@ -43,7 +43,7 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 10px 0;
   gap: 12px;
   overflow: hidden;
@@ -66,15 +66,15 @@ body,
 
 .workbench-root.has-rail .tab-rail.is-visible {
   margin-left: 10px;
-  margin-right: 10px;
+  margin-right: 0;
 }
 
-.tab-rail.is-on-light {
+.tab-rail.is-sidebar-open {
   background-color: #ffffff;
 }
 
-.tab-rail.is-on-dark {
-  background-color: #ffffff;
+.tab-rail.is-sidebar-closed {
+  background-color: var(--bg-app);
 }
 
 .tab-rail-top {
@@ -473,7 +473,6 @@ body,
   display: flex;
   flex-direction: column;
   padding: 8px 10px 8px 0;
-  gap: 6px;
   min-width: 0;
   transition: padding-left 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -840,16 +839,16 @@ body,
 }
 
 .editor-inner-flow {
-  min-height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 100%;
 }
 
 .editor-container {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100%;
+  flex: 1;
 }
 
 .editor-title-textarea {
@@ -898,7 +897,6 @@ body,
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: calc(100vh - 200px);
   cursor: text;
 }
 
@@ -942,20 +940,20 @@ body,
 }
 
 .editor-textarea {
-  flex: 1;
   width: 100%;
-  min-height: 100%;
   border: none;
   outline: none;
   resize: none;
   padding: 0;
   margin: 0;
   font-size: 16px;
-  line-height: 1.65;
+  line-height: 26.4px;
   font-family: var(--font-ios);
   color: #1c1c1e;
   background-color: transparent;
   user-select: text;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .editor-textarea::placeholder {
