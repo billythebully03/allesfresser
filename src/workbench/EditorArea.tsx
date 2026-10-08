@@ -11,7 +11,7 @@ export function EditorArea({ content, onChange }: EditorAreaProps) {
         value={content}
         onChange={(e) => onChange(e.target.value)}
         spellCheck={false}
-        placeholder="Начните писать..."
+        placeholder="Текст документа..."
       />
     </div>
   )
