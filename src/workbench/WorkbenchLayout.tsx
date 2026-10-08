@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChapterItem, PageItem, extractTitle } from '@/entities/document/types'
+import { ChapterItem, PageItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
@@ -8,28 +8,13 @@ import { StatusBar } from './StatusBar'
 const INITIAL_CHAPTERS: ChapterItem[] = [
   {
     id: 'ch-1',
-    title: 'Глава 1',
     isOpen: true,
     updatedAt: Date.now(),
     pages: [
       {
         id: 'pg-1',
-        title: 'В ту ночь шел дождь',
+        title: 'Глава 1',
         content: 'В ту ночь шел дождь. Они встретились у моста...',
-        updatedAt: Date.now(),
-      },
-    ],
-  },
-  {
-    id: 'ch-2',
-    title: 'Глава 2',
-    isOpen: true,
-    updatedAt: Date.now(),
-    pages: [
-      {
-        id: 'pg-2',
-        title: 'Без названия',
-        content: '',
         updatedAt: Date.now(),
       },
     ],
@@ -54,38 +39,81 @@ export function WorkbenchLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  let activeChapter: ChapterItem | undefined
   let activePage: PageItem | undefined
+
   for (const chapter of chapters) {
     const found = chapter.pages.find((p) => p.id === activePageId)
     if (found) {
+      activeChapter = chapter
       activePage = found
       break
     }
   }
 
   if (!activePage && chapters[0]?.pages[0]) {
+    activeChapter = chapters[0]
     activePage = chapters[0].pages[0]
   }
 
-  const currentContent = activePage ? activePage.content : ''
+  const isFirstPage = activeChapter?.pages[0]?.id === activePage?.id
 
-  const handleContentChange = (newContent: string) => {
+  const handleTitleChange = (newTitle: string) => {
     if (!activePage) return
-    const newTitle = extractTitle(newContent)
     setChapters((prev) =>
       prev.map((chapter) => ({
         ...chapter,
         pages: chapter.pages.map((page) =>
           page.id === activePageId
-            ? {
-                ...page,
-                content: newContent,
-                title: newTitle,
-                updatedAt: Date.now(),
-              }
+            ? { ...page, title: newTitle, updatedAt: Date.now() }
             : page,
         ),
       })),
+    )
+  }
+
+  const handleContentChange = (newContent: string) => {
+    if (!activePage) return
+    setChapters((prev) =>
+      prev.map((chapter) => ({
+        ...chapter,
+        pages: chapter.pages.map((page) =>
+          page.id === activePageId
+            ? { ...page, content: newContent, updatedAt: Date.now() }
+            : page,
+        ),
+      })),
+    )
+  }
+
+  const handleRenameChapter = (chapterId: string, newTitle: string) => {
+    setChapters((prev) =>
+      prev.map((ch) =>
+        ch.id === chapterId
+          ? { ...ch, customTitle: newTitle || undefined, updatedAt: Date.now() }
+          : ch,
+      ),
+    )
+  }
+
+  const handleRenamePage = (
+    chapterId: string,
+    pageId: string,
+    newTitle: string,
+  ) => {
+    setChapters((prev) =>
+      prev.map((ch) =>
+        ch.id === chapterId
+          ? {
+              ...ch,
+              pages: ch.pages.map((p) =>
+                p.id === pageId
+                  ? { ...p, title: newTitle, updatedAt: Date.now() }
+                  : p,
+              ),
+            }
+          : ch,
+      ),
     )
   }
 
@@ -102,17 +130,16 @@ export function WorkbenchLayout() {
   }
 
   const handleAddChapter = () => {
-    const newChapterIndex = chapters.length + 1
+    const nextIndex = chapters.length + 1
     const newPageId = `pg-${Date.now()}`
     const newChapter: ChapterItem = {
       id: `ch-${Date.now()}`,
-      title: `Глава ${newChapterIndex}`,
       isOpen: true,
       updatedAt: Date.now(),
       pages: [
         {
           id: newPageId,
-          title: 'Без названия',
+          title: `Глава ${nextIndex}`,
           content: '',
           updatedAt: Date.now(),
         },
@@ -125,7 +152,7 @@ export function WorkbenchLayout() {
   const handleAddPage = (chapterId: string) => {
     const newPage: PageItem = {
       id: `pg-${Date.now()}`,
-      title: 'Без названия',
+      title: '',
       content: '',
       updatedAt: Date.now(),
     }
@@ -146,11 +173,12 @@ export function WorkbenchLayout() {
     const duplicated: ChapterItem = {
       ...source,
       id: `ch-${Date.now()}`,
-      title: `${source.title} (копия)`,
+      customTitle: source.customTitle ? `${source.customTitle} (копия)` : undefined,
       updatedAt: Date.now(),
       pages: source.pages.map((p, idx) => ({
         ...p,
         id: `pg-${Date.now()}-${idx}`,
+        title: idx === 0 && !source.customTitle ? `${p.title} (копия)` : p.title,
         updatedAt: Date.now(),
       })),
     }
@@ -171,13 +199,12 @@ export function WorkbenchLayout() {
         const fallbackPageId = `pg-${Date.now()}`
         const fallback: ChapterItem = {
           id: `ch-${Date.now()}`,
-          title: 'Глава 1',
           isOpen: true,
           updatedAt: Date.now(),
           pages: [
             {
               id: fallbackPageId,
-              title: 'Без названия',
+              title: 'Глава 1',
               content: '',
               updatedAt: Date.now(),
             },
@@ -206,7 +233,7 @@ export function WorkbenchLayout() {
         const duplicatedPage: PageItem = {
           ...sourcePage,
           id: `pg-${Date.now()}`,
-          title: `${sourcePage.title} (копия)`,
+          title: sourcePage.title ? `${sourcePage.title} (копия)` : '',
           updatedAt: Date.now(),
         }
         const updatedPages = [
@@ -228,7 +255,7 @@ export function WorkbenchLayout() {
         if (remainingPages.length === 0) {
           const newFallbackPage: PageItem = {
             id: `pg-${Date.now()}`,
-            title: 'Без названия',
+            title: '',
             content: '',
             updatedAt: Date.now(),
           }
@@ -245,8 +272,9 @@ export function WorkbenchLayout() {
     )
   }
 
-  const wordCount = currentContent.trim()
-    ? currentContent.trim().split(/\s+/).length
+  const contentText = activePage ? activePage.content : ''
+  const wordCount = contentText.trim()
+    ? contentText.trim().split(/\s+/).length
     : 0
 
   return (
@@ -260,6 +288,8 @@ export function WorkbenchLayout() {
         onSelectPage={handleSelectPage}
         onAddChapter={handleAddChapter}
         onAddPage={handleAddPage}
+        onRenameChapter={handleRenameChapter}
+        onRenamePage={handleRenamePage}
         onDuplicateChapter={handleDuplicateChapter}
         onDeleteChapter={handleDeleteChapter}
         onDuplicatePage={handleDuplicatePage}
@@ -310,8 +340,11 @@ export function WorkbenchLayout() {
             </div>
           )}
           <EditorArea
-            content={currentContent}
-            onChange={handleContentChange}
+            title={activePage ? activePage.title : ''}
+            content={contentText}
+            isFirstPageOfChapter={isFirstPage}
+            onTitleChange={handleTitleChange}
+            onContentChange={handleContentChange}
             onCursorMove={(line, column) => setCursor({ line, column })}
           />
         </main>
