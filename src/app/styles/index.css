@@ -150,6 +150,7 @@ body,
   align-items: center;
   gap: 6px;
   overflow: hidden;
+  flex: 1;
 }
 
 .chevron-icon {
@@ -234,6 +235,18 @@ body,
   white-space: nowrap;
 }
 
+.node-rename-input {
+  font-family: inherit;
+  font-size: 13px;
+  border: none;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-main);
+  border-radius: 4px;
+  padding: 1px 4px;
+  outline: none;
+  width: 100%;
+}
+
 .sidebar-footer {
   padding: 8px 10px 12px 10px;
 }
@@ -293,10 +306,36 @@ body,
   padding: 44px 44px 24px 44px;
 }
 
-.editor-textarea {
-  width: 100%;
+.editor-container {
+  display: flex;
+  flex-direction: column;
   max-width: 800px;
+  width: 100%;
   min-height: 100%;
+}
+
+.editor-title-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-ios);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #1c1c1e;
+  padding: 0;
+  margin: 0 0 16px 0;
+  width: 100%;
+}
+
+.editor-title-input::placeholder {
+  color: #c7c7cc;
+  font-weight: 600;
+}
+
+.editor-textarea {
+  flex: 1;
+  width: 100%;
   border: none;
   outline: none;
   resize: none;
@@ -373,13 +412,13 @@ body,
 
 .context-menu {
   position: fixed;
-  background-color: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background-color: rgba(30, 30, 32, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 7px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(255, 255, 255, 0.12);
   padding: 4px;
-  min-width: 130px;
+  min-width: 140px;
   z-index: 99999;
 }
 
@@ -388,22 +427,21 @@ body,
   align-items: center;
   padding: 5px 8px;
   border-radius: 4px;
-  font-size: 13px;
-  color: var(--text-main);
+  font-size: 12px;
+  color: #ffffff;
   cursor: pointer;
-  transition: background-color 0.1s ease, color 0.1s ease;
+  transition: background-color 0.1s ease;
 }
 
 .context-menu-item:hover {
-  background-color: #007aff;
-  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.14);
 }
 
 .context-menu-item.is-destructive {
-  color: #ff3b30;
+  color: #ff453a;
 }
 
 .context-menu-item.is-destructive:hover {
-  background-color: #ff3b30;
+  background-color: #ff453a;
   color: #ffffff;
 }
