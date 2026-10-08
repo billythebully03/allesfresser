@@ -1,4 +1,11 @@
-import { ChangeEvent, SyntheticEvent, useRef, KeyboardEvent } from 'react'
+import {
+  ChangeEvent,
+  SyntheticEvent,
+  useRef,
+  KeyboardEvent,
+  useState,
+  useLayoutEffect,
+} from 'react'
 
 interface EditorAreaProps {
   title: string
@@ -18,6 +25,24 @@ export function EditorArea({
   onCursorMove,
 }: EditorAreaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const titleTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [isShaking, setIsShaking] = useState(false)
+  const shakeTimerRef = useRef<number | null>(null)
+
+  const triggerShake = () => {
+    if (isShaking) return
+    setIsShaking(true)
+    shakeTimerRef.current = window.setTimeout(() => {
+      setIsShaking(false)
+    }, 400)
+  }
+
+  useLayoutEffect(() => {
+    if (titleTextareaRef.current) {
+      titleTextareaRef.current.style.height = 'auto'
+      titleTextareaRef.current.style.height = `${titleTextareaRef.current.scrollHeight}px`
+    }
+  }, [title])
 
   const updateCursorPosition = (
     e: SyntheticEvent<HTMLTextAreaElement, Event>,
@@ -32,13 +57,50 @@ export function EditorArea({
     onCursorMove(currentLine, currentColumn)
   }
 
-  const handleTitleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleTitleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
+      const currentLines = title.split('\n').length
+      if (currentLines >= 3) {
+        e.preventDefault()
+        triggerShake()
+        return
+      }
       e.preventDefault()
       if (textareaRef.current) {
         textareaRef.current.focus()
       }
     }
+  }
+
+  const handleTitleInput = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    const nextValue = e.target.value
+    const target = e.target
+
+    const clone = document.createElement('textarea')
+    clone.style.width = `${target.clientWidth}px`
+    clone.style.fontFamily = window.getComputedStyle(target).fontFamily
+    clone.style.fontSize = window.getComputedStyle(target).fontSize
+    clone.style.fontWeight = window.getComputedStyle(target).fontWeight
+    clone.style.lineHeight = window.getComputedStyle(target).lineHeight
+    clone.style.padding = '0'
+    clone.style.border = 'none'
+    clone.style.position = 'absolute'
+    clone.style.left = '-9999px'
+    clone.style.height = 'auto'
+    clone.value = nextValue
+    document.body.appendChild(clone)
+
+    const lineHeight = 33
+    const maxAllowedHeight = lineHeight * 3 + 8
+    const exceeds = clone.scrollHeight > maxAllowedHeight || nextValue.split('\n').length > 3
+    document.body.removeChild(clone)
+
+    if (exceeds) {
+      triggerShake()
+      return
+    }
+
+    onTitleChange(nextValue)
   }
 
   const handleContentChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -49,10 +111,12 @@ export function EditorArea({
   return (
     <div className="editor-viewport">
       <div className="editor-container">
-        <input
-          className="editor-title-input"
+        <textarea
+          ref={titleTextareaRef}
+          rows={1}
+          className={`editor-title-input ${isShaking ? 'is-shaking' : ''}`}
           value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
+          onChange={handleTitleInput}
           onKeyDown={handleTitleKeyDown}
           placeholder={
             isFirstPageOfChapter
