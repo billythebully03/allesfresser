@@ -1,28 +1,29 @@
+import { DocumentItem } from '@/entities/document/types'
+
 interface SidebarProps {
-  documents: Array<{ id: string; title: string }>
+  isOpen: boolean
+  documents: DocumentItem[]
   activeId: string
   onSelect: (id: string) => void
 }
 
-export function Sidebar({ documents, activeId, onSelect }: SidebarProps) {
+export function Sidebar({ isOpen, documents, activeId, onSelect }: SidebarProps) {
   return (
-    <aside className="workbench-sidebar">
-      <div>
+    <aside className={`sidebar ${isOpen ? '' : 'is-collapsed'}`}>
+      <div className="sidebar-header">
+        <span className="brand-title">allesfresser</span>
+      </div>
+      <nav className="sidebar-nav">
         {documents.map((doc) => (
           <div
             key={doc.id}
+            className={`nav-item ${doc.id === activeId ? 'is-active' : ''}`}
             onClick={() => onSelect(doc.id)}
-            style={{
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              backgroundColor: doc.id === activeId ? '#f5f5f5' : '#ffffff',
-            }}
           >
             {doc.title}
           </div>
         ))}
-      </div>
+      </nav>
     </aside>
   )
 }
