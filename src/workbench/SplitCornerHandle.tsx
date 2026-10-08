@@ -3,12 +3,16 @@ import { Tooltip } from '@/shared/ui/Tooltip'
 
 interface SplitCornerHandleProps {
   isSplit: boolean
-  onToggle: () => void
+  onDragProgress: (widthPx: number, isDragging: boolean) => void
+  onSnap: (shouldSplit: boolean) => void
+  onInstantToggle: () => void
 }
 
 export function SplitCornerHandle({
   isSplit,
-  onToggle,
+  onDragProgress,
+  onSnap,
+  onInstantToggle,
 }: SplitCornerHandleProps) {
   const [isPointerDown, setIsPointerDown] = useState(false)
   const startXRef = useRef(0)
@@ -19,14 +23,16 @@ export function SplitCornerHandle({
     setIsPointerDown(true)
     startXRef.current = e.clientX
     hasMovedRef.current = false
+    onDragProgress(0, true)
   }
 
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!isPointerDown) return
     const deltaX = startXRef.current - e.clientX
-    if (Math.abs(deltaX) > 10) {
+    if (Math.abs(deltaX) > 4) {
       hasMovedRef.current = true
     }
+    onDragProgress(deltaX, true)
   }
 
   const handlePointerUp = (e: PointerEvent<HTMLDivElement>) => {
@@ -34,13 +40,16 @@ export function SplitCornerHandle({
     setIsPointerDown(false)
     e.currentTarget.releasePointerCapture(e.pointerId)
 
-    const deltaX = startXRef.current - e.clientX
     if (!hasMovedRef.current) {
-      onToggle()
-    } else if (!isSplit && deltaX > 40) {
-      onToggle()
-    } else if (isSplit && deltaX < -40) {
-      onToggle()
+      onInstantToggle()
+      return
+    }
+
+    const deltaX = startXRef.current - e.clientX
+    if (!isSplit) {
+      onSnap(deltaX > 70)
+    } else {
+      onSnap(deltaX > -70)
     }
   }
 
@@ -48,12 +57,14 @@ export function SplitCornerHandle({
     <Tooltip
       label={
         isSplit
-          ? 'Закрыть раздельный вид'
-          : 'Открыть раздельный вид'
+          ? 'Нажмите для закрытия'
+          : 'Потяните влево, чтобы вытянуть вторую страницу'
       }
     >
       <div
-        className={`split-corner-handle ${isSplit ? 'is-active' : ''}`}
+        className={`split-corner-handle ${isSplit ? 'is-active' : ''} ${
+          isPointerDown ? 'is-dragging' : ''
+        }`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
