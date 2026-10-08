@@ -80,7 +80,7 @@ export function Sidebar({
 
   const startRename = (type: 'chapter' | 'page', id: string, initialTitle: string) => {
     setEditingTarget({ type, id })
-    setEditValue(initialTitle)
+    setEditValue(initialTitle === 'Без названия' ? '' : initialTitle)
     setContextTarget(null)
   }
 
@@ -93,7 +93,7 @@ export function Sidebar({
       for (const ch of chapters) {
         const found = ch.pages.find((p) => p.id === editingTarget.id)
         if (found) {
-          onRenamePage(ch.id, editingTarget.id, trimmed || 'Без названия')
+          onRenamePage(ch.id, editingTarget.id, trimmed)
           break
         }
       }
@@ -219,28 +219,30 @@ export function Sidebar({
                     </span>
                   )}
                 </div>
-                <button
-                  className="node-action-btn"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onAddPage(chapter.id)
-                  }}
-                  aria-label="Добавить страницу"
-                >
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                <Tooltip label="Добавить страницу">
+                  <button
+                    className="node-action-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onAddPage(chapter.id)
+                    }}
+                    aria-label="Добавить страницу"
                   >
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
-                  </svg>
-                </button>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 5v14" />
+                      <path d="M5 12h14" />
+                    </svg>
+                  </button>
+                </Tooltip>
               </div>
 
               {chapter.isOpen && (
@@ -248,11 +250,14 @@ export function Sidebar({
                   {chapter.pages.map((page) => {
                     const isEditingPage =
                       editingTarget?.type === 'page' && editingTarget.id === page.id
+                    const displayPageTitle = page.title.trim() || 'Без названия'
 
                     return (
                       <div
                         key={page.id}
-                        className={`page-item ${page.id === activePageId ? 'is-active' : ''}`}
+                        className={`page-item ${
+                          page.id === activePageId ? 'is-active' : ''
+                        }`}
                         onClick={() => onSelectPage(chapter.id, page.id)}
                         onContextMenu={(e) =>
                           handleContextMenu(e, 'page', chapter.id, page.id)
@@ -273,10 +278,10 @@ export function Sidebar({
                             className="page-title"
                             onDoubleClick={(e) => {
                               e.stopPropagation()
-                              startRename('page', page.id, page.title)
+                              startRename('page', page.id, displayPageTitle)
                             }}
                           >
-                            {page.title}
+                            {displayPageTitle}
                           </span>
                         )}
                       </div>
@@ -314,6 +319,17 @@ export function Sidebar({
           y={contextTarget.y}
           onClose={() => setContextTarget(null)}
         >
+          {contextTarget.type === 'chapter' && (
+            <div
+              className="context-menu-item"
+              onClick={() => {
+                onAddPage(contextTarget.chapterId)
+                setContextTarget(null)
+              }}
+            >
+              Добавить страницу
+            </div>
+          )}
           <div
             className="context-menu-item"
             onClick={() => {
@@ -336,7 +352,11 @@ export function Sidebar({
                   (p) => p.id === contextTarget.pageId,
                 )
                 if (targetPage) {
-                  startRename('page', targetPage.id, targetPage.title)
+                  startRename(
+                    'page',
+                    targetPage.id,
+                    targetPage.title || 'Без названия',
+                  )
                 }
               }
             }}
