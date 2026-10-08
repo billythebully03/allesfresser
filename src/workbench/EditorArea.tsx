@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
 } from 'react'
+import { TextSelectionInfo } from './ButterflyInspector'
 
 interface EditorAreaProps {
   title: string
@@ -15,6 +16,7 @@ interface EditorAreaProps {
   onTitleChange: (value: string) => void
   onContentChange: (value: string) => void
   onCursorMove?: (line: number, column: number) => void
+  onSelectionChange?: (selection: TextSelectionInfo | null) => void
 }
 
 const LINE_HEIGHT_PX = 26.4
@@ -29,6 +31,7 @@ export function EditorArea({
   onTitleChange,
   onContentChange,
   onCursorMove,
+  onSelectionChange,
 }: EditorAreaProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -94,13 +97,31 @@ export function EditorArea({
   ) => {
     const target = e.currentTarget
     const cursorIndex = target.selectionStart ?? 0
+    const cursorEnd = target.selectionEnd ?? 0
     const textBeforeCursor = target.value.slice(0, cursorIndex)
     const lines = textBeforeCursor.split('\n')
     const currentLine = lines.length
     const currentColumn = lines[lines.length - 1].length + 1
     setActiveLine(currentLine)
+
     if (onCursorMove) {
       onCursorMove(currentLine, currentColumn)
+    }
+
+    if (onSelectionChange) {
+      if (cursorEnd > cursorIndex) {
+        const selectedText = target.value.slice(cursorIndex, cursorEnd)
+        const wordCount = selectedText.trim()
+          ? selectedText.trim().split(/\s+/).length
+          : 0
+        onSelectionChange({
+          text: selectedText,
+          wordCount,
+          charCount: selectedText.length,
+        })
+      } else {
+        onSelectionChange(null)
+      }
     }
   }
 
