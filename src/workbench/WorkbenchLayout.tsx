@@ -27,10 +27,11 @@ export function WorkbenchLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isSplit, setIsSplit] = useState(false)
   const [splitPercent, setSplitPercent] = useState(0)
-  const [isDraggingSplit, setIsDraggingSplit] = useState(false)
+  const [animationMode, setAnimationMode] = useState<'instant' | 'smooth'>('smooth')
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
   const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const createdPageIdForSplitRef = useRef<string | null>(null)
   const islandRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export function WorkbenchLayout() {
         content: '',
         updatedAt: Date.now(),
       }
+      createdPageIdForSplitRef.current = newPageId
       setChapters((prev) =>
         prev.map((ch) =>
           ch.id === activeChapter?.id
@@ -91,8 +93,27 @@ export function WorkbenchLayout() {
     }
   }
 
+  const cleanupEmptyAutoCreatedPage = () => {
+    const targetId = createdPageIdForSplitRef.current
+    if (!targetId) return
+
+    setChapters((prev) =>
+      prev.map((ch) => {
+        const found = ch.pages.find((p) => p.id === targetId)
+        if (found && !found.title.trim() && !found.content.trim()) {
+          return {
+            ...ch,
+            pages: ch.pages.filter((p) => p.id !== targetId),
+          }
+        }
+        return ch
+      }),
+    )
+    createdPageIdForSplitRef.current = null
+  }
+
   const handleDragProgress = (deltaX: number, isDragging: boolean) => {
-    setIsDraggingSplit(isDragging)
+    setAnimationMode('instant')
     ensureNextPage()
     if (!islandRef.current) return
     const containerWidth = islandRef.current.clientWidth
@@ -102,20 +123,33 @@ export function WorkbenchLayout() {
     targetWidthPx = Math.max(0, Math.min(halfWidth, targetWidthPx))
     const percent = (targetWidthPx / containerWidth) * 100
     setSplitPercent(percent)
+
+    if (!isDragging && percent === 0) {
+      cleanupEmptyAutoCreatedPage()
+    }
   }
 
   const handleSnap = (shouldSplit: boolean) => {
-    setIsDraggingSplit(false)
+    setAnimationMode('smooth')
     setIsSplit(shouldSplit)
     setSplitPercent(shouldSplit ? 50 : 0)
+    if (!shouldSplit) {
+      cleanupEmptyAutoCreatedPage()
+    }
   }
 
-  const handleToggleSplit = () => {
-    ensureNextPage()
-    setIsDraggingSplit(false)
+  const handleInstantToggle = () => {
+    setAnimationMode('instant')
     const nextState = !isSplit
-    setIsSplit(nextState)
-    setSplitPercent(nextState ? 50 : 0)
+    if (nextState) {
+      ensureNextPage()
+      setIsSplit(true)
+      setSplitPercent(50)
+    } else {
+      setIsSplit(false)
+      setSplitPercent(0)
+      cleanupEmptyAutoCreatedPage()
+    }
   }
 
   const isFirstPage = activeChapter?.pages[0]?.id === activePage?.id
@@ -143,11 +177,17 @@ export function WorkbenchLayout() {
 
   const handleNextTitleChange = (newTitle: string) => {
     if (!nextPage) return
+    if (createdPageIdForSplitRef.current === nextPage.id && newTitle.trim()) {
+      createdPageIdForSplitRef.current = null
+    }
     updatePage(nextPage.id, { title: newTitle })
   }
 
   const handleNextContentChange = (newContent: string) => {
     if (!nextPage) return
+    if (createdPageIdForSplitRef.current === nextPage.id && newContent.trim()) {
+      createdPageIdForSplitRef.current = null
+    }
     updatePage(nextPage.id, { content: newContent })
   }
 
@@ -409,12 +449,12 @@ export function WorkbenchLayout() {
             isSplit={isSplit}
             onDragProgress={handleDragProgress}
             onSnap={handleSnap}
-            onToggle={handleToggleSplit}
+            onInstantToggle={handleInstantToggle}
           />
 
           <div
             className={`workspace-panes-wrapper ${
-              isDraggingSplit ? 'is-dragging' : ''
+              animationMode === 'instant' ? 'is-instant' : ''
             }`}
           >
             <div
@@ -440,7 +480,7 @@ export function WorkbenchLayout() {
                   className="workspace-pane workspace-pane-secondary"
                   style={{
                     width: `${splitPercent}%`,
-                    opacity: Math.min(1, splitPercent / 12),
+                    opacity: Math.min(1, splitPercent / 10),
                   }}
                 >
                   <EditorArea
