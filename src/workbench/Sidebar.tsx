@@ -1,5 +1,5 @@
-import { useState, MouseEvent } from 'react'
-import { ChapterItem } from '@/entities/document/types'
+import { useState, useRef, useEffect, MouseEvent, KeyboardEvent } from 'react'
+import { ChapterItem, getChapterTitle } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { ContextMenu } from '@/shared/ui/ContextMenu'
 
@@ -11,6 +11,11 @@ interface ContextMenuTarget {
   pageId?: string
 }
 
+interface EditingTarget {
+  type: 'chapter' | 'page'
+  id: string
+}
+
 interface SidebarProps {
   isOpen: boolean
   chapters: ChapterItem[]
@@ -20,6 +25,8 @@ interface SidebarProps {
   onSelectPage: (chapterId: string, pageId: string) => void
   onAddChapter: () => void
   onAddPage: (chapterId: string) => void
+  onRenameChapter: (chapterId: string, newTitle: string) => void
+  onRenamePage: (chapterId: string, pageId: string, newTitle: string) => void
   onDuplicateChapter: (chapterId: string) => void
   onDeleteChapter: (chapterId: string) => void
   onDuplicatePage: (chapterId: string, pageId: string) => void
@@ -35,12 +42,24 @@ export function Sidebar({
   onSelectPage,
   onAddChapter,
   onAddPage,
+  onRenameChapter,
+  onRenamePage,
   onDuplicateChapter,
   onDeleteChapter,
   onDuplicatePage,
   onDeletePage,
 }: SidebarProps) {
   const [contextTarget, setContextTarget] = useState<ContextMenuTarget | null>(null)
+  const [editingTarget, setEditingTarget] = useState<EditingTarget | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingTarget && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editingTarget])
 
   const handleContextMenu = (
     e: MouseEvent,
@@ -57,6 +76,37 @@ export function Sidebar({
       chapterId,
       pageId,
     })
+  }
+
+  const startRename = (type: 'chapter' | 'page', id: string, initialTitle: string) => {
+    setEditingTarget({ type, id })
+    setEditValue(initialTitle)
+    setContextTarget(null)
+  }
+
+  const commitRename = () => {
+    if (!editingTarget) return
+    const trimmed = editValue.trim()
+    if (editingTarget.type === 'chapter') {
+      onRenameChapter(editingTarget.id, trimmed)
+    } else {
+      for (const ch of chapters) {
+        const found = ch.pages.find((p) => p.id === editingTarget.id)
+        if (found) {
+          onRenamePage(ch.id, editingTarget.id, trimmed || 'Без названия')
+          break
+        }
+      }
+    }
+    setEditingTarget(null)
+  }
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      commitRename()
+    } else if (e.key === 'Escape') {
+      setEditingTarget(null)
+    }
   }
 
   const handleDuplicate = () => {
@@ -121,71 +171,122 @@ export function Sidebar({
       </div>
 
       <nav className="sidebar-nav">
-        {chapters.map((chapter) => (
-          <div key={chapter.id} className="chapter-node">
-            <div
-              className="chapter-item"
-              onClick={() => onToggleChapter(chapter.id)}
-              onContextMenu={(e) => handleContextMenu(e, 'chapter', chapter.id)}
-            >
-              <div className="chapter-item-left">
-                <svg
-                  className={`chevron-icon ${chapter.isOpen ? 'is-expanded' : ''}`}
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-                <span className="chapter-title">{chapter.title}</span>
-              </div>
-              <button
-                className="node-action-btn"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onAddPage(chapter.id)
-                }}
-                aria-label="Добавить страницу"
-              >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M12 5v14" />
-                  <path d="M5 12h14" />
-                </svg>
-              </button>
-            </div>
+        {chapters.map((chapter) => {
+          const displayChapterTitle = getChapterTitle(chapter)
+          const isEditingChapter =
+            editingTarget?.type === 'chapter' && editingTarget.id === chapter.id
 
-            {chapter.isOpen && (
-              <div className="pages-list">
-                {chapter.pages.map((page) => (
-                  <div
-                    key={page.id}
-                    className={`page-item ${page.id === activePageId ? 'is-active' : ''}`}
-                    onClick={() => onSelectPage(chapter.id, page.id)}
-                    onContextMenu={(e) =>
-                      handleContextMenu(e, 'page', chapter.id, page.id)
-                    }
+          return (
+            <div key={chapter.id} className="chapter-node">
+              <div
+                className="chapter-item"
+                onClick={() => onToggleChapter(chapter.id)}
+                onContextMenu={(e) => handleContextMenu(e, 'chapter', chapter.id)}
+              >
+                <div className="chapter-item-left">
+                  <svg
+                    className={`chevron-icon ${chapter.isOpen ? 'is-expanded' : ''}`}
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    <span className="page-title">{page.title}</span>
-                  </div>
-                ))}
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                  {isEditingChapter ? (
+                    <input
+                      ref={inputRef}
+                      className="node-rename-input"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onBlur={commitRename}
+                      onKeyDown={handleKeyDown}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span
+                      className="chapter-title"
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        startRename('chapter', chapter.id, displayChapterTitle)
+                      }}
+                    >
+                      {displayChapterTitle}
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="node-action-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAddPage(chapter.id)
+                  }}
+                  aria-label="Добавить страницу"
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 5v14" />
+                    <path d="M5 12h14" />
+                  </svg>
+                </button>
               </div>
-            )}
-          </div>
-        ))}
+
+              {chapter.isOpen && (
+                <div className="pages-list">
+                  {chapter.pages.map((page) => {
+                    const isEditingPage =
+                      editingTarget?.type === 'page' && editingTarget.id === page.id
+
+                    return (
+                      <div
+                        key={page.id}
+                        className={`page-item ${page.id === activePageId ? 'is-active' : ''}`}
+                        onClick={() => onSelectPage(chapter.id, page.id)}
+                        onContextMenu={(e) =>
+                          handleContextMenu(e, 'page', chapter.id, page.id)
+                        }
+                      >
+                        {isEditingPage ? (
+                          <input
+                            ref={inputRef}
+                            className="node-rename-input"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={commitRename}
+                            onKeyDown={handleKeyDown}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <span
+                            className="page-title"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation()
+                              startRename('page', page.id, page.title)
+                            }}
+                          >
+                            {page.title}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </nav>
 
       <div className="sidebar-footer">
@@ -213,6 +314,35 @@ export function Sidebar({
           y={contextTarget.y}
           onClose={() => setContextTarget(null)}
         >
+          <div
+            className="context-menu-item"
+            onClick={() => {
+              if (contextTarget.type === 'chapter') {
+                const targetChapter = chapters.find(
+                  (c) => c.id === contextTarget.chapterId,
+                )
+                if (targetChapter) {
+                  startRename(
+                    'chapter',
+                    targetChapter.id,
+                    getChapterTitle(targetChapter),
+                  )
+                }
+              } else if (contextTarget.pageId) {
+                const targetChapter = chapters.find(
+                  (c) => c.id === contextTarget.chapterId,
+                )
+                const targetPage = targetChapter?.pages.find(
+                  (p) => p.id === contextTarget.pageId,
+                )
+                if (targetPage) {
+                  startRename('page', targetPage.id, targetPage.title)
+                }
+              }
+            }}
+          >
+            Переименовать
+          </div>
           <div className="context-menu-item" onClick={handleDuplicate}>
             Дублировать
           </div>
