@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ChapterItem, PageItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
+import { SplitCornerHandle } from './SplitCornerHandle'
 import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
 import { StatusBar } from './StatusBar'
@@ -23,6 +24,7 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
 
 export function WorkbenchLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSplit, setIsSplit] = useState(false)
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
   const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
@@ -41,12 +43,14 @@ export function WorkbenchLayout() {
 
   let activeChapter: ChapterItem | undefined
   let activePage: PageItem | undefined
+  let activePageIndex = -1
 
   for (const chapter of chapters) {
-    const found = chapter.pages.find((p) => p.id === activePageId)
-    if (found) {
+    const index = chapter.pages.findIndex((p) => p.id === activePageId)
+    if (index !== -1) {
       activeChapter = chapter
-      activePage = found
+      activePage = chapter.pages[index]
+      activePageIndex = index
       break
     }
   }
@@ -54,36 +58,67 @@ export function WorkbenchLayout() {
   if (!activePage && chapters[0]?.pages[0]) {
     activeChapter = chapters[0]
     activePage = chapters[0].pages[0]
+    activePageIndex = 0
+  }
+
+  let nextPage: PageItem | undefined
+  if (activeChapter && activePageIndex !== -1) {
+    if (activePageIndex + 1 < activeChapter.pages.length) {
+      nextPage = activeChapter.pages[activePageIndex + 1]
+    }
+  }
+
+  const handleToggleSplit = () => {
+    if (!isSplit && !nextPage && activeChapter) {
+      const newPageId = `pg-${Date.now()}`
+      const newPage: PageItem = {
+        id: newPageId,
+        title: '',
+        content: '',
+        updatedAt: Date.now(),
+      }
+      setChapters((prev) =>
+        prev.map((ch) =>
+          ch.id === activeChapter?.id
+            ? { ...ch, pages: [...ch.pages, newPage] }
+            : ch,
+        ),
+      )
+    }
+    setIsSplit((prev) => !prev)
   }
 
   const isFirstPage = activeChapter?.pages[0]?.id === activePage?.id
 
-  const handleTitleChange = (newTitle: string) => {
-    if (!activePage) return
+  const updatePage = (pageId: string, updates: Partial<PageItem>) => {
     setChapters((prev) =>
       prev.map((chapter) => ({
         ...chapter,
-        pages: chapter.pages.map((page) =>
-          page.id === activePageId
-            ? { ...page, title: newTitle, updatedAt: Date.now() }
-            : page,
+        pages: chapter.pages.map((p) =>
+          p.id === pageId ? { ...p, ...updates, updatedAt: Date.now() } : p,
         ),
       })),
     )
   }
 
+  const handleTitleChange = (newTitle: string) => {
+    if (!activePage) return
+    updatePage(activePage.id, { title: newTitle })
+  }
+
   const handleContentChange = (newContent: string) => {
     if (!activePage) return
-    setChapters((prev) =>
-      prev.map((chapter) => ({
-        ...chapter,
-        pages: chapter.pages.map((page) =>
-          page.id === activePageId
-            ? { ...page, content: newContent, updatedAt: Date.now() }
-            : page,
-        ),
-      })),
-    )
+    updatePage(activePage.id, { content: newContent })
+  }
+
+  const handleNextTitleChange = (newTitle: string) => {
+    if (!nextPage) return
+    updatePage(nextPage.id, { title: newTitle })
+  }
+
+  const handleNextContentChange = (newContent: string) => {
+    if (!nextPage) return
+    updatePage(nextPage.id, { content: newContent })
   }
 
   const handleRenameChapter = (chapterId: string, newTitle: string) => {
@@ -107,9 +142,7 @@ export function WorkbenchLayout() {
           ? {
               ...ch,
               pages: ch.pages.map((p) =>
-                p.id === pageId
-                  ? { ...p, title: newTitle, updatedAt: Date.now() }
-                  : p,
+                p.id === pageId ? { ...p, title: newTitle } : p,
               ),
             }
           : ch,
@@ -339,14 +372,41 @@ export function WorkbenchLayout() {
               </Tooltip>
             </div>
           )}
-          <EditorArea
-            title={activePage ? activePage.title : ''}
-            content={contentText}
-            isFirstPageOfChapter={isFirstPage}
-            onTitleChange={handleTitleChange}
-            onContentChange={handleContentChange}
-            onCursorMove={(line, column) => setCursor({ line, column })}
+
+          <SplitCornerHandle
+            isSplit={isSplit}
+            onToggleSplit={handleToggleSplit}
           />
+
+          <div
+            className={`workspace-panes-wrapper ${isSplit ? 'is-split' : ''}`}
+          >
+            <div className="workspace-pane">
+              <EditorArea
+                title={activePage ? activePage.title : ''}
+                content={contentText}
+                isFirstPageOfChapter={isFirstPage}
+                onTitleChange={handleTitleChange}
+                onContentChange={handleContentChange}
+                onCursorMove={(line, column) => setCursor({ line, column })}
+              />
+            </div>
+
+            {isSplit && nextPage && (
+              <>
+                <div className="workspace-pane-divider" />
+                <div className="workspace-pane">
+                  <EditorArea
+                    title={nextPage.title}
+                    content={nextPage.content}
+                    isFirstPageOfChapter={false}
+                    onTitleChange={handleNextTitleChange}
+                    onContentChange={handleNextContentChange}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </main>
         <StatusBar wordCount={wordCount} cursor={cursor} />
       </div>
