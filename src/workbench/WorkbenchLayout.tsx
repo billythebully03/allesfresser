@@ -28,14 +28,15 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
 export function WorkbenchLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isSplit, setIsSplit] = useState(false)
-  const [leftPercent, setLeftPercent] = useState(100)
-  const [savedSplitPercent, setSavedSplitPercent] = useState(50)
-  const [animationMode, setAnimationMode] = useState<'instant' | 'smooth'>('smooth')
+  const [splitRatio, setSplitRatio] = useState(50)
+  const [savedRatio, setSavedRatio] = useState(50)
+  const [isAnimated, setIsAnimated] = useState(false)
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
   const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
   const [isTrashOpen, setIsTrashOpen] = useState(false)
+
   const createdPageIdForSplitRef = useRef<string | null>(null)
   const isDraggingDividerRef = useRef(false)
   const islandRef = useRef<HTMLElement>(null)
@@ -118,46 +119,15 @@ export function WorkbenchLayout() {
     createdPageIdForSplitRef.current = null
   }
 
-  const handleCornerDragProgress = (deltaX: number, isDragging: boolean) => {
-    setAnimationMode('instant')
-    ensureSecondaryPage()
-    if (!islandRef.current) return
-    const containerWidth = islandRef.current.clientWidth
-    const targetSecondaryWidthPx = isSplit
-      ? (containerWidth * (100 - savedSplitPercent)) / 100 - deltaX
-      : deltaX
-
-    const maxSecondaryWidth = containerWidth * 0.8
-    const clampedSecondaryWidth = Math.max(0, Math.min(maxSecondaryWidth, targetSecondaryWidthPx))
-    const currentLeft = ((containerWidth - clampedSecondaryWidth) / containerWidth) * 100
-    setLeftPercent(currentLeft)
-
-    if (!isDragging && currentLeft >= 99) {
-      cleanupEmptyAutoCreatedPage()
-    }
-  }
-
-  const handleCornerSnap = (shouldSplit: boolean) => {
-    setAnimationMode('smooth')
-    setIsSplit(shouldSplit)
-    if (shouldSplit) {
-      setLeftPercent(savedSplitPercent)
-    } else {
-      setLeftPercent(100)
-      cleanupEmptyAutoCreatedPage()
-    }
-  }
-
-  const handleInstantToggle = () => {
-    setAnimationMode('instant')
+  const handleToggleSplit = () => {
+    setIsAnimated(false)
     const nextState = !isSplit
     if (nextState) {
       ensureSecondaryPage()
       setIsSplit(true)
-      setLeftPercent(savedSplitPercent)
+      setSplitRatio(savedRatio)
     } else {
       setIsSplit(false)
-      setLeftPercent(100)
       cleanupEmptyAutoCreatedPage()
     }
   }
@@ -165,16 +135,16 @@ export function WorkbenchLayout() {
   const handleDividerPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId)
     isDraggingDividerRef.current = true
-    setAnimationMode('instant')
+    setIsAnimated(false)
   }
 
   const handleDividerPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!isDraggingDividerRef.current || !islandRef.current) return
     const rect = islandRef.current.getBoundingClientRect()
-    const rawLeft = ((e.clientX - rect.left) / rect.width) * 100
-    const clampedLeft = Math.max(20, Math.min(80, rawLeft))
-    setLeftPercent(clampedLeft)
-    setSavedSplitPercent(clampedLeft)
+    const rawRatio = ((e.clientX - rect.left) / rect.width) * 100
+    const clamped = Math.max(20, Math.min(80, rawRatio))
+    setSplitRatio(clamped)
+    setSavedRatio(clamped)
   }
 
   const handleDividerPointerUp = (e: PointerEvent<HTMLDivElement>) => {
@@ -184,9 +154,9 @@ export function WorkbenchLayout() {
   }
 
   const handleDividerDoubleClick = () => {
-    setAnimationMode('smooth')
-    setLeftPercent(50)
-    setSavedSplitPercent(50)
+    setIsAnimated(true)
+    setSplitRatio(50)
+    setSavedRatio(50)
   }
 
   const isFirstPage = primaryChapter?.pages[0]?.id === primaryPage?.id
@@ -475,8 +445,6 @@ export function WorkbenchLayout() {
     ? contentText.trim().split(/\s+/).length
     : 0
 
-  const secondaryWidth = 100 - leftPercent
-
   return (
     <div className="workbench-root">
       <Sidebar
@@ -542,9 +510,7 @@ export function WorkbenchLayout() {
 
           <SplitCornerHandle
             isSplit={isSplit}
-            onDragProgress={handleCornerDragProgress}
-            onSnap={handleCornerSnap}
-            onInstantToggle={handleInstantToggle}
+            onToggle={handleToggleSplit}
           />
 
           <TrashButton
@@ -561,16 +527,14 @@ export function WorkbenchLayout() {
           />
 
           <div
-            className={`workspace-panes-wrapper ${
-              animationMode === 'instant' ? 'is-instant' : ''
-            }`}
+            className={`workspace-panes-wrapper ${isAnimated ? 'is-animated' : ''}`}
           >
             <div
               className={`workspace-pane ${
-                activePageId === primaryPage?.id ? 'is-focused-pane' : ''
+                activePageId === primaryPage?.id ? 'is-active-pane' : ''
               }`}
               style={{
-                width: `${leftPercent}%`,
+                width: isSplit ? `${splitRatio}%` : '100%',
               }}
               onFocusCapture={() => {
                 if (primaryPage) setActivePageId(primaryPage.id)
@@ -589,7 +553,7 @@ export function WorkbenchLayout() {
               />
             </div>
 
-            {secondaryWidth > 0 && secondaryPage && (
+            {isSplit && secondaryPage && (
               <>
                 <div
                   className="workspace-pane-divider"
@@ -602,11 +566,10 @@ export function WorkbenchLayout() {
                 </div>
                 <div
                   className={`workspace-pane workspace-pane-secondary ${
-                    activePageId === secondaryPage?.id ? 'is-focused-pane' : ''
+                    activePageId === secondaryPage?.id ? 'is-active-pane' : ''
                   }`}
                   style={{
-                    width: `${secondaryWidth}%`,
-                    opacity: Math.min(1, secondaryWidth / 10),
+                    width: `${100 - splitRatio}%`,
                   }}
                   onFocusCapture={() => {
                     if (secondaryPage) setActivePageId(secondaryPage.id)
