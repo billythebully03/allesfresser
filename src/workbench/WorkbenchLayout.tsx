@@ -2,11 +2,10 @@ import { useState, useRef, useEffect, PointerEvent } from 'react'
 import { ChapterItem, PageItem, TrashItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { SplitCornerHandle } from './SplitCornerHandle'
-import { TrashButton } from './TrashButton'
-import { TrashModal } from './TrashModal'
 import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
 import { StatusBar } from './StatusBar'
+import { TrashModal } from './TrashModal'
 
 const INITIAL_CHAPTERS: ChapterItem[] = [
   {
@@ -21,23 +20,31 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
         content: 'В ту ночь шел дождь. Они встретились у моста...',
         updatedAt: Date.now(),
       },
+      {
+        id: 'pg-2',
+        title: 'Тени на воде',
+        content: 'Фонари отражались в мокром асфальте. Он сделал шаг вперед...',
+        updatedAt: Date.now(),
+      },
     ],
   },
 ]
 
 export function WorkbenchLayout() {
+  const [sidebarWidth, setSidebarWidth] = useState(250)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isRailOpen, setIsRailOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'canvas' | 'settings'>('canvas')
   const [isSplit, setIsSplit] = useState(false)
-  const [splitRatio, setSplitRatio] = useState(50)
-  const [savedRatio, setSavedRatio] = useState(50)
-  const [isAnimated, setIsAnimated] = useState(false)
+  const [leftPercent, setLeftPercent] = useState(100)
+  const [savedSplitPercent, setSavedSplitPercent] = useState(50)
+  const [animationMode, setAnimationMode] = useState<'instant' | 'smooth'>('smooth')
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
-  const [activePageId, setActivePageId] = useState<string>('pg-1')
-  const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const [viewBasePageId, setViewBasePageId] = useState<string>('pg-1')
+  const [activeCursorPageId, setActiveCursorPageId] = useState<string>('pg-1')
+  const [secondaryDraft, setSecondaryDraft] = useState<PageItem | null>(null)
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
-  const [isTrashOpen, setIsTrashOpen] = useState(false)
-
-  const createdPageIdForSplitRef = useRef<string | null>(null)
+  const [cursor, setCursor] = useState({ line: 1, column: 1 })
   const isDraggingDividerRef = useRef(false)
   const islandRef = useRef<HTMLElement>(null)
 
@@ -58,7 +65,7 @@ export function WorkbenchLayout() {
   let primaryPageIndex = -1
 
   for (const chapter of chapters) {
-    const index = chapter.pages.findIndex((p) => p.id === activePageId)
+    const index = chapter.pages.findIndex((p) => p.id === viewBasePageId)
     if (index !== -1) {
       primaryChapter = chapter
       primaryPage = chapter.pages[index]
@@ -74,77 +81,105 @@ export function WorkbenchLayout() {
   }
 
   let secondaryPage: PageItem | undefined
+  let isNextPageAvailable = false
+
   if (primaryChapter && primaryPageIndex !== -1) {
     if (primaryPageIndex + 1 < primaryChapter.pages.length) {
       secondaryPage = primaryChapter.pages[primaryPageIndex + 1]
+      isNextPageAvailable = true
+    } else {
+      const currentChapterIdx = chapters.findIndex((c) => c.id === primaryChapter?.id)
+      if (currentChapterIdx !== -1 && currentChapterIdx + 1 < chapters.length) {
+        const nextChapter = chapters[currentChapterIdx + 1]
+        if (nextChapter.pages[0]) {
+          secondaryPage = nextChapter.pages[0]
+          isNextPageAvailable = true
+        }
+      }
     }
   }
 
-  const ensureSecondaryPage = () => {
-    if (!secondaryPage && primaryChapter) {
-      const newPageId = `pg-${Date.now()}`
-      const newPage: PageItem = {
-        id: newPageId,
+  const effectiveSecondaryPage: PageItem = secondaryPage || secondaryDraft || {
+    id: 'draft-page',
+    title: '',
+    content: '',
+    updatedAt: Date.now(),
+  }
+
+  const ensureSecondaryDraft = () => {
+    if (!isNextPageAvailable && !secondaryDraft) {
+      setSecondaryDraft({
+        id: `pg-${Date.now()}`,
         title: '',
         content: '',
         updatedAt: Date.now(),
-      }
-      createdPageIdForSplitRef.current = newPageId
-      setChapters((prev) =>
-        prev.map((ch) =>
-          ch.id === primaryChapter?.id
-            ? { ...ch, pages: [...ch.pages, newPage] }
-            : ch,
-        ),
-      )
+      })
     }
   }
 
-  const cleanupEmptyAutoCreatedPage = () => {
-    const targetId = createdPageIdForSplitRef.current
-    if (!targetId) return
+  const handleCornerDragProgress = (deltaX: number, _isDragging: boolean) => {
+    setAnimationMode('instant')
+    ensureSecondaryDraft()
+    if (!islandRef.current) return
+    const containerWidth = islandRef.current.clientWidth
+    const targetSecondaryWidthPx = isSplit
+      ? (containerWidth * (100 - savedSplitPercent)) / 100 - deltaX
+      : deltaX
 
-    setChapters((prev) =>
-      prev.map((ch) => {
-        const found = ch.pages.find((p) => p.id === targetId)
-        if (found && !found.title.trim() && !found.content.trim()) {
-          return {
-            ...ch,
-            pages: ch.pages.filter((p) => p.id !== targetId),
-          }
-        }
-        return ch
-      }),
-    )
-    createdPageIdForSplitRef.current = null
+    const maxSecondaryWidth = containerWidth * 0.8
+    const clampedSecondaryWidth = Math.max(0, Math.min(maxSecondaryWidth, targetSecondaryWidthPx))
+    const currentLeft = ((containerWidth - clampedSecondaryWidth) / containerWidth) * 100
+    setLeftPercent(currentLeft)
+
+    if (currentLeft >= 99 && secondaryDraft) {
+      setSecondaryDraft(null)
+    }
   }
 
-  const handleToggleSplit = () => {
-    setIsAnimated(false)
+  const handleCornerSnap = (shouldSplit: boolean) => {
+    setAnimationMode('smooth')
+    setIsSplit(shouldSplit)
+    if (shouldSplit) {
+      setLeftPercent(savedSplitPercent)
+    } else {
+      setLeftPercent(100)
+      setSecondaryDraft(null)
+      if (primaryPage) {
+        setActiveCursorPageId(primaryPage.id)
+      }
+    }
+  }
+
+  const handleInstantToggle = () => {
+    setAnimationMode('instant')
     const nextState = !isSplit
     if (nextState) {
-      ensureSecondaryPage()
+      ensureSecondaryDraft()
       setIsSplit(true)
-      setSplitRatio(savedRatio)
+      setLeftPercent(savedSplitPercent)
     } else {
       setIsSplit(false)
-      cleanupEmptyAutoCreatedPage()
+      setLeftPercent(100)
+      setSecondaryDraft(null)
+      if (primaryPage) {
+        setActiveCursorPageId(primaryPage.id)
+      }
     }
   }
 
   const handleDividerPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId)
     isDraggingDividerRef.current = true
-    setIsAnimated(false)
+    setAnimationMode('instant')
   }
 
   const handleDividerPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!isDraggingDividerRef.current || !islandRef.current) return
     const rect = islandRef.current.getBoundingClientRect()
-    const rawRatio = ((e.clientX - rect.left) / rect.width) * 100
-    const clamped = Math.max(20, Math.min(80, rawRatio))
-    setSplitRatio(clamped)
-    setSavedRatio(clamped)
+    const rawLeft = ((e.clientX - rect.left) / rect.width) * 100
+    const clampedLeft = Math.max(20, Math.min(80, rawLeft))
+    setLeftPercent(clampedLeft)
+    setSavedSplitPercent(clampedLeft)
   }
 
   const handleDividerPointerUp = (e: PointerEvent<HTMLDivElement>) => {
@@ -154,9 +189,9 @@ export function WorkbenchLayout() {
   }
 
   const handleDividerDoubleClick = () => {
-    setIsAnimated(true)
-    setSplitRatio(50)
-    setSavedRatio(50)
+    setAnimationMode('smooth')
+    setLeftPercent(50)
+    setSavedSplitPercent(50)
   }
 
   const isFirstPage = primaryChapter?.pages[0]?.id === primaryPage?.id
@@ -182,20 +217,51 @@ export function WorkbenchLayout() {
     updatePage(primaryPage.id, { content: newContent })
   }
 
-  const handleSecondaryTitleChange = (newTitle: string) => {
-    if (!secondaryPage) return
-    if (createdPageIdForSplitRef.current === secondaryPage.id && newTitle.trim()) {
-      createdPageIdForSplitRef.current = null
+  const persistDraftIfNeeded = (draftUpdate: Partial<PageItem>) => {
+    if (secondaryDraft && primaryChapter) {
+      const persistedPage: PageItem = {
+        ...secondaryDraft,
+        ...draftUpdate,
+        updatedAt: Date.now(),
+      }
+      setChapters((prev) =>
+        prev.map((ch) =>
+          ch.id === primaryChapter?.id
+            ? { ...ch, pages: [...ch.pages, persistedPage] }
+            : ch,
+        ),
+      )
+      setSecondaryDraft(null)
+      setActiveCursorPageId(persistedPage.id)
     }
-    updatePage(secondaryPage.id, { title: newTitle })
+  }
+
+  const handleSecondaryTitleChange = (newTitle: string) => {
+    if (secondaryDraft) {
+      if (newTitle.trim()) {
+        persistDraftIfNeeded({ title: newTitle })
+      } else {
+        setSecondaryDraft({ ...secondaryDraft, title: newTitle })
+      }
+      return
+    }
+    if (secondaryPage) {
+      updatePage(secondaryPage.id, { title: newTitle })
+    }
   }
 
   const handleSecondaryContentChange = (newContent: string) => {
-    if (!secondaryPage) return
-    if (createdPageIdForSplitRef.current === secondaryPage.id && newContent.trim()) {
-      createdPageIdForSplitRef.current = null
+    if (secondaryDraft) {
+      if (newContent.trim()) {
+        persistDraftIfNeeded({ content: newContent })
+      } else {
+        setSecondaryDraft({ ...secondaryDraft, content: newContent })
+      }
+      return
     }
-    updatePage(secondaryPage.id, { content: newContent })
+    if (secondaryPage) {
+      updatePage(secondaryPage.id, { content: newContent })
+    }
   }
 
   const handleRenameChapter = (chapterId: string, newTitle: string) => {
@@ -236,7 +302,20 @@ export function WorkbenchLayout() {
   }
 
   const handleSelectPage = (_chapterId: string, pageId: string) => {
-    setActivePageId(pageId)
+    if (isSplit) {
+      if (secondaryPage && pageId === secondaryPage.id) {
+        setActiveCursorPageId(secondaryPage.id)
+        return
+      }
+      if (primaryPage && pageId === primaryPage.id) {
+        setActiveCursorPageId(primaryPage.id)
+        return
+      }
+    }
+
+    setSecondaryDraft(null)
+    setViewBasePageId(pageId)
+    setActiveCursorPageId(pageId)
   }
 
   const handleAddChapter = () => {
@@ -257,7 +336,9 @@ export function WorkbenchLayout() {
       ],
     }
     setChapters((prev) => [...prev, newChapter])
-    setActivePageId(newPageId)
+    setSecondaryDraft(null)
+    setViewBasePageId(newPageId)
+    setActiveCursorPageId(newPageId)
   }
 
   const handleAddPage = (chapterId: string) => {
@@ -274,7 +355,22 @@ export function WorkbenchLayout() {
           : ch,
       ),
     )
-    setActivePageId(newPage.id)
+    setSecondaryDraft(null)
+
+    if (isSplit) {
+      if (activeCursorPageId === effectiveSecondaryPage.id) {
+        if (secondaryPage) {
+          setViewBasePageId(secondaryPage.id)
+        }
+        setActiveCursorPageId(newPage.id)
+      } else if (primaryPage) {
+        setViewBasePageId(primaryPage.id)
+        setActiveCursorPageId(newPage.id)
+      }
+    } else {
+      setViewBasePageId(newPage.id)
+      setActiveCursorPageId(newPage.id)
+    }
   }
 
   const handleDuplicateChapter = (chapterId: string) => {
@@ -299,21 +395,25 @@ export function WorkbenchLayout() {
       ...prev.slice(index + 1),
     ])
     if (duplicated.pages[0]) {
-      setActivePageId(duplicated.pages[0].id)
+      setSecondaryDraft(null)
+      setViewBasePageId(duplicated.pages[0].id)
+      setActiveCursorPageId(duplicated.pages[0].id)
     }
   }
 
   const handleDeleteChapter = (chapterId: string) => {
-    const chapterToDelete = chapters.find((ch) => ch.id === chapterId)
-    if (chapterToDelete) {
-      const trashRecord: TrashItem = {
-        id: `trash-${Date.now()}`,
-        type: 'chapter',
-        title: chapterToDelete.title || 'Безымянная глава',
-        deletedAt: Date.now(),
-        data: chapterToDelete,
-      }
-      setTrashItems((prev) => [trashRecord, ...prev])
+    const targetChapter = chapters.find((ch) => ch.id === chapterId)
+    if (targetChapter) {
+      setTrashItems((prev) => [
+        {
+          id: `trash-${Date.now()}`,
+          type: 'chapter',
+          title: targetChapter.title,
+          deletedAt: Date.now(),
+          chapterData: targetChapter,
+        },
+        ...prev,
+      ])
     }
 
     setChapters((prev) => {
@@ -334,14 +434,18 @@ export function WorkbenchLayout() {
             },
           ],
         }
-        setActivePageId(fallbackPageId)
+        setSecondaryDraft(null)
+        setViewBasePageId(fallbackPageId)
+        setActiveCursorPageId(fallbackPageId)
         return [fallback]
       }
       const isCurrentActiveRemoved = !remaining.some((ch) =>
-        ch.pages.some((p) => p.id === activePageId),
+        ch.pages.some((p) => p.id === viewBasePageId),
       )
       if (isCurrentActiveRemoved && remaining[0]?.pages[0]) {
-        setActivePageId(remaining[0].pages[0].id)
+        setSecondaryDraft(null)
+        setViewBasePageId(remaining[0].pages[0].id)
+        setActiveCursorPageId(remaining[0].pages[0].id)
       }
       return remaining
     })
@@ -365,26 +469,29 @@ export function WorkbenchLayout() {
           duplicatedPage,
           ...ch.pages.slice(pageIndex + 1),
         ]
-        setActivePageId(duplicatedPage.id)
+        setSecondaryDraft(null)
+        setViewBasePageId(duplicatedPage.id)
+        setActiveCursorPageId(duplicatedPage.id)
         return { ...ch, pages: updatedPages }
       }),
     )
   }
 
   const handleDeletePage = (chapterId: string, pageId: string) => {
-    const parentChapter = chapters.find((ch) => ch.id === chapterId)
-    const pageToDelete = parentChapter?.pages.find((p) => p.id === pageId)
-
+    const parent = chapters.find((ch) => ch.id === chapterId)
+    const pageToDelete = parent?.pages.find((p) => p.id === pageId)
     if (pageToDelete) {
-      const trashRecord: TrashItem = {
-        id: `trash-${Date.now()}`,
-        type: 'page',
-        title: pageToDelete.title || 'Безымянная страница',
-        deletedAt: Date.now(),
-        data: pageToDelete,
-        parentChapterId: chapterId,
-      }
-      setTrashItems((prev) => [trashRecord, ...prev])
+      setTrashItems((prev) => [
+        {
+          id: `trash-${Date.now()}`,
+          type: 'page',
+          title: pageToDelete.title,
+          deletedAt: Date.now(),
+          chapterId,
+          pageData: pageToDelete,
+        },
+        ...prev,
+      ])
     }
 
     setChapters((prev) =>
@@ -398,60 +505,157 @@ export function WorkbenchLayout() {
             content: '',
             updatedAt: Date.now(),
           }
-          if (activePageId === pageId) {
-            setActivePageId(newFallbackPage.id)
+          if (viewBasePageId === pageId) {
+            setSecondaryDraft(null)
+            setViewBasePageId(newFallbackPage.id)
+            setActiveCursorPageId(newFallbackPage.id)
           }
           return { ...ch, pages: [newFallbackPage] }
         }
-        if (activePageId === pageId) {
-          setActivePageId(remainingPages[0].id)
+        if (viewBasePageId === pageId) {
+          setSecondaryDraft(null)
+          setViewBasePageId(remainingPages[0].id)
+          setActiveCursorPageId(remainingPages[0].id)
         }
         return { ...ch, pages: remainingPages }
       }),
     )
   }
 
-  const handleRestoreFromTrash = (item: TrashItem) => {
+  const handleRestoreTrashItem = (item: TrashItem) => {
+    setTrashItems((prev) => prev.filter((i) => i.id !== item.id))
+
     if (item.type === 'chapter') {
-      const chapterData = item.data as ChapterItem
-      setChapters((prev) => [...prev, chapterData])
-      if (chapterData.pages[0]) {
-        setActivePageId(chapterData.pages[0].id)
+      setChapters((prev) => [...prev, item.chapterData])
+      if (item.chapterData.pages[0]) {
+        setSecondaryDraft(null)
+        setViewBasePageId(item.chapterData.pages[0].id)
+        setActiveCursorPageId(item.chapterData.pages[0].id)
       }
     } else {
-      const pageData = item.data as PageItem
       setChapters((prev) => {
-        const targetChapter = prev.find((ch) => ch.id === item.parentChapterId) ?? prev[0]
-        if (!targetChapter) return prev
-
-        return prev.map((ch) =>
-          ch.id === targetChapter.id
-            ? { ...ch, pages: [...ch.pages, pageData] }
-            : ch,
-        )
+        const chapterExists = prev.some((c) => c.id === item.chapterId)
+        if (chapterExists) {
+          return prev.map((c) =>
+            c.id === item.chapterId
+              ? { ...c, pages: [...c.pages, item.pageData] }
+              : c,
+          )
+        }
+        const restoredChapter: ChapterItem = {
+          id: item.chapterId,
+          title: 'Восстановленная глава',
+          isOpen: true,
+          updatedAt: Date.now(),
+          pages: [item.pageData],
+        }
+        return [...prev, restoredChapter]
       })
-      setActivePageId(pageData.id)
+      setSecondaryDraft(null)
+      setViewBasePageId(item.pageData.id)
+      setActiveCursorPageId(item.pageData.id)
     }
+  }
 
-    setTrashItems((prev) => prev.filter((i) => i.id !== item.id))
+  const handlePermanentlyDeleteTrashItem = (itemId: string) => {
+    setTrashItems((prev) => prev.filter((i) => i.id !== itemId))
   }
 
   const handleClearTrash = () => {
     setTrashItems([])
   }
 
-  const contentText = primaryPage ? primaryPage.content : ''
+  const handleSidebarWidthChange = (newWidth: number) => {
+    setSidebarWidth(newWidth)
+    if (newWidth >= 285 && !isRailOpen) {
+      setIsRailOpen(true)
+    } else if (newWidth < 285 && isRailOpen) {
+      setIsRailOpen(false)
+    }
+  }
+
+  const currentlyFocusedPage = activeCursorPageId === effectiveSecondaryPage.id
+    ? effectiveSecondaryPage
+    : primaryPage
+
+  const contentText = currentlyFocusedPage ? currentlyFocusedPage.content : ''
   const wordCount = contentText.trim()
     ? contentText.trim().split(/\s+/).length
     : 0
 
+  const secondaryWidth = 100 - leftPercent
+
   return (
-    <div className="workbench-root">
+    <div
+      className={`workbench-root ${isRailOpen ? 'has-rail' : ''} ${
+        !isSidebarOpen ? 'is-sidebar-hidden' : ''
+      }`}
+    >
+      <div
+        className={`tab-rail ${isRailOpen ? 'is-visible' : ''} ${
+          isSidebarOpen ? 'is-sidebar-open' : 'is-sidebar-closed'
+        }`}
+      >
+        <div className="tab-rail-top">
+          <div className="tab-rail-brand">
+            <img
+              src="/allesfresser.png"
+              alt="Logo"
+              className="tab-rail-logo"
+            />
+          </div>
+
+          <button
+            className={`tab-rail-btn ${activeTab === 'canvas' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('canvas')}
+            aria-label="Холст"
+            title="Холст"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </button>
+
+          <button
+            className={`tab-rail-btn ${activeTab === 'settings' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+            aria-label="Настройки"
+            title="Настройки"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <Sidebar
         isOpen={isSidebarOpen}
+        width={sidebarWidth}
         chapters={chapters}
-        activePageId={activePageId}
+        activePageId={activeCursorPageId}
         onToggle={() => setIsSidebarOpen(false)}
+        onWidthChange={handleSidebarWidthChange}
         onToggleChapter={handleToggleChapter}
         onSelectPage={handleSelectPage}
         onAddChapter={handleAddChapter}
@@ -463,6 +667,7 @@ export function WorkbenchLayout() {
         onDuplicatePage={handleDuplicatePage}
         onDeletePage={handleDeletePage}
       />
+
       <div className={`workspace-outer ${isSidebarOpen ? '' : 'is-full'}`}>
         <main ref={islandRef} className="workspace-island">
           {!isSidebarOpen && (
@@ -510,42 +715,38 @@ export function WorkbenchLayout() {
 
           <SplitCornerHandle
             isSplit={isSplit}
-            onToggle={handleToggleSplit}
-          />
-
-          <TrashButton
-            isEmpty={trashItems.length === 0}
-            onClick={() => setIsTrashOpen(true)}
+            onDragProgress={handleCornerDragProgress}
+            onSnap={handleCornerSnap}
+            onInstantToggle={handleInstantToggle}
           />
 
           <TrashModal
-            isOpen={isTrashOpen}
             items={trashItems}
-            onClose={() => setIsTrashOpen(false)}
-            onRestore={handleRestoreFromTrash}
-            onClear={handleClearTrash}
+            onRestore={handleRestoreTrashItem}
+            onPermanentlyDelete={handlePermanentlyDeleteTrashItem}
+            onClearAll={handleClearTrash}
           />
 
           <div
-            className={`workspace-panes-wrapper ${isAnimated ? 'is-animated' : ''}`}
+            className={`workspace-panes-wrapper ${
+              animationMode === 'instant' ? 'is-instant' : ''
+            }`}
           >
             <div
-              className={`workspace-pane ${
-                activePageId === primaryPage?.id ? 'is-active-pane' : ''
-              }`}
+              className="workspace-pane"
               style={{
-                width: isSplit ? `${splitRatio}%` : '100%',
+                width: `${leftPercent}%`,
               }}
               onFocusCapture={() => {
-                if (primaryPage) setActivePageId(primaryPage.id)
+                if (primaryPage) setActiveCursorPageId(primaryPage.id)
               }}
               onClickCapture={() => {
-                if (primaryPage) setActivePageId(primaryPage.id)
+                if (primaryPage) setActiveCursorPageId(primaryPage.id)
               }}
             >
               <EditorArea
                 title={primaryPage ? primaryPage.title : ''}
-                content={contentText}
+                content={primaryPage ? primaryPage.content : ''}
                 isFirstPageOfChapter={isFirstPage}
                 onTitleChange={handlePrimaryTitleChange}
                 onContentChange={handlePrimaryContentChange}
@@ -553,7 +754,7 @@ export function WorkbenchLayout() {
               />
             </div>
 
-            {isSplit && secondaryPage && (
+            {secondaryWidth > 0 && (
               <>
                 <div
                   className="workspace-pane-divider"
@@ -565,25 +766,25 @@ export function WorkbenchLayout() {
                   <div className="divider-line" />
                 </div>
                 <div
-                  className={`workspace-pane workspace-pane-secondary ${
-                    activePageId === secondaryPage?.id ? 'is-active-pane' : ''
-                  }`}
+                  className="workspace-pane workspace-pane-secondary"
                   style={{
-                    width: `${100 - splitRatio}%`,
+                    width: `${secondaryWidth}%`,
+                    opacity: Math.min(1, secondaryWidth / 10),
                   }}
                   onFocusCapture={() => {
-                    if (secondaryPage) setActivePageId(secondaryPage.id)
+                    setActiveCursorPageId(effectiveSecondaryPage.id)
                   }}
                   onClickCapture={() => {
-                    if (secondaryPage) setActivePageId(secondaryPage.id)
+                    setActiveCursorPageId(effectiveSecondaryPage.id)
                   }}
                 >
                   <EditorArea
-                    title={secondaryPage.title}
-                    content={secondaryPage.content}
+                    title={effectiveSecondaryPage.title}
+                    content={effectiveSecondaryPage.content}
                     isFirstPageOfChapter={false}
                     onTitleChange={handleSecondaryTitleChange}
                     onContentChange={handleSecondaryContentChange}
+                    onCursorMove={(line, column) => setCursor({ line, column })}
                   />
                 </div>
               </>
