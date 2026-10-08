@@ -5,14 +5,14 @@ interface SplitCornerHandleProps {
   isSplit: boolean
   onDragProgress: (widthPx: number, isDragging: boolean) => void
   onSnap: (shouldSplit: boolean) => void
-  onToggle: () => void
+  onInstantToggle: () => void
 }
 
 export function SplitCornerHandle({
   isSplit,
   onDragProgress,
   onSnap,
-  onToggle,
+  onInstantToggle,
 }: SplitCornerHandleProps) {
   const [isPointerDown, setIsPointerDown] = useState(false)
   const startXRef = useRef(0)
@@ -41,7 +41,7 @@ export function SplitCornerHandle({
     e.currentTarget.releasePointerCapture(e.pointerId)
 
     if (!hasMovedRef.current) {
-      onToggle()
+      onInstantToggle()
       return
     }
 
@@ -57,7 +57,7 @@ export function SplitCornerHandle({
     <Tooltip
       label={
         isSplit
-          ? 'Потяните вправо или нажмите для закрытия'
+          ? 'Нажмите для закрытия'
           : 'Потяните влево, чтобы вытянуть вторую страницу'
       }
     >
