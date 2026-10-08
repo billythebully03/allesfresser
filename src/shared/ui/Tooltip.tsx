@@ -24,7 +24,7 @@ export function Tooltip({ label, shortcut, children }: TooltipProps) {
 
     const triggerRect = triggerRef.current.getBoundingClientRect()
     const popoverRect = popoverRef.current.getBoundingClientRect()
-    const gap = 6
+    const gap = 4
     const margin = 8
 
     let top = triggerRect.bottom + gap
