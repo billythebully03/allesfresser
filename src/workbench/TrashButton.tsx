@@ -15,8 +15,8 @@ export function TrashButton({ isEmpty, onClick }: TrashButtonProps) {
       >
         {isEmpty ? (
           <svg
-            width="16"
-            height="16"
+            width="17"
+            height="17"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -30,8 +30,8 @@ export function TrashButton({ isEmpty, onClick }: TrashButtonProps) {
           </svg>
         ) : (
           <svg
-            width="16"
-            height="16"
+            width="17"
+            height="17"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
