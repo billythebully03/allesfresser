@@ -47,6 +47,7 @@ export function WorkbenchLayout() {
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
   const isDraggingDividerRef = useRef(false)
   const islandRef = useRef<HTMLElement>(null)
+  const draggedTabIdxRef = useRef<number | null>(null)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -565,6 +566,16 @@ export function WorkbenchLayout() {
     setTrashItems([])
   }
 
+  const handleMoveChapter = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return
+    setChapters((prev) => {
+      const next = [...prev]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      return next
+    })
+  }
+
   const handleSidebarWidthChange = (newWidth: number) => {
     setSidebarWidth(newWidth)
     if (newWidth >= 285 && !isRailOpen) {
@@ -679,6 +690,7 @@ export function WorkbenchLayout() {
         onDeleteChapter={handleDeleteChapter}
         onDuplicatePage={handleDuplicatePage}
         onDeletePage={handleDeletePage}
+        onMoveChapter={handleMoveChapter}
       />
 
       <div className={`workspace-outer ${isSidebarOpen ? '' : 'is-full'}`}>
@@ -727,33 +739,80 @@ export function WorkbenchLayout() {
 
             <div className="chapter-tabs-list">
               {chapters.map((ch, idx) => {
-                const isActive = ch.id === primaryChapter?.id
+                const isChapterActive = ch.id === primaryChapter?.id
+
                 return (
-                  <button
+                  <div
                     key={ch.id}
-                    className={`chapter-tab ${isActive ? 'is-active' : ''}`}
-                    style={{ animationDelay: `${idx * 32}ms` }}
-                    onClick={() => {
-                      if (ch.pages[0]) {
-                        setSecondaryDraft(null)
-                        setViewBasePageId(ch.pages[0].id)
-                        setActiveCursorPageId(ch.pages[0].id)
+                    className="chapter-tab-group"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', String(idx))
+                      draggedTabIdxRef.current = idx
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      if (
+                        draggedTabIdxRef.current !== null &&
+                        draggedTabIdxRef.current !== idx
+                      ) {
+                        handleMoveChapter(draggedTabIdxRef.current, idx)
+                        draggedTabIdxRef.current = idx
                       }
                     }}
+                    onDragEnd={() => {
+                      draggedTabIdxRef.current = null
+                    }}
                   >
-                    <svg
-                      className="chapter-tab-icon"
-                      width="13"
-                      height="13"
-                      viewBox="0 0 16 16"
-                      fill="currentColor"
+                    <button
+                      className={`chapter-tab ${isChapterActive ? 'is-active' : ''}`}
+                      style={{ animationDelay: `${idx * 28}ms` }}
+                      onClick={() => {
+                        if (ch.pages[0]) {
+                          setSecondaryDraft(null)
+                          setViewBasePageId(ch.pages[0].id)
+                          setActiveCursorPageId(ch.pages[0].id)
+                        }
+                      }}
                     >
-                      <path d="M5 10.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5m0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5m0-2a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5" />
-                      <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-1h1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v1H1V2a2 2 0 0 1 2-2" />
-                      <path d="M1 5v-.5a.5.5 0 0 1 1 0V5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0V8h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zm0 3v-.5a.5.5 0 0 1 1 0v.5h.5a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1z" />
-                    </svg>
-                    <span className="chapter-tab-title">{ch.title || `Глава ${idx + 1}`}</span>
-                  </button>
+                      <span className="chapter-tab-title">{ch.title || `Глава ${idx + 1}`}</span>
+                    </button>
+
+                    {isChapterActive && (
+                      <div className="chapter-pages-strip">
+                        {ch.pages.map((p, pIdx) => {
+                          const isPageActive = p.id === activeCursorPageId
+                          return (
+                            <button
+                              key={p.id}
+                              className={`page-tab ${isPageActive ? 'is-active-page' : ''}`}
+                              style={{ animationDelay: `${pIdx * 24}ms` }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (isSplit) {
+                                  if (secondaryPage && p.id === secondaryPage.id) {
+                                    setActiveCursorPageId(secondaryPage.id)
+                                    return
+                                  }
+                                  if (primaryPage && p.id === primaryPage.id) {
+                                    setActiveCursorPageId(primaryPage.id)
+                                    return
+                                  }
+                                }
+                                setSecondaryDraft(null)
+                                setViewBasePageId(p.id)
+                                setActiveCursorPageId(p.id)
+                              }}
+                            >
+                              <span className="page-tab-title">
+                                {p.title || `Стр ${pIdx + 1}`}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
