@@ -319,10 +319,16 @@ body,
   display: none;
 }
 
+.chapter-tab-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
 .chapter-tab {
   display: flex;
   align-items: center;
-  gap: 7px;
   padding: 6px 14px;
   height: 32px;
   border-radius: 8px 8px 0 0;
@@ -349,16 +355,64 @@ body,
   font-weight: 600;
 }
 
-.chapter-tab-icon {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.chapter-tab.is-active .chapter-tab-icon {
-  opacity: 1;
-}
-
 .chapter-tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-pages-strip {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.03);
+  padding: 3px 6px;
+  border-radius: 6px;
+  margin-bottom: 3px;
+  animation: pageStripEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pageStripEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+}
+
+.page-tab {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font-ios);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.page-tab:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-main);
+}
+
+.page-tab.is-active-page {
+  background: #ffffff;
+  color: var(--text-main);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.page-tab-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -383,6 +437,7 @@ body,
 
 .chapter-node {
   margin-bottom: 4px;
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .chapter-item {
@@ -762,68 +817,59 @@ body,
 .trash-items-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 10px 10px 10px;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
 }
 
-.trash-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.trash-section-title {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #8e8e93;
-  padding: 2px 4px;
-}
-
-.trash-row {
+.trash-log-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 8px;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
-  gap: 8px;
-  transition: background-color 0.12s ease;
+  padding: 7px 12px;
+  gap: 10px;
+  font-size: 12px;
+  border-radius: 0;
+  transition: background-color 0.1s ease;
 }
 
-.trash-row:hover {
-  background-color: rgba(255, 255, 255, 0.09);
+.trash-log-row:nth-child(odd) {
+  background-color: rgba(255, 255, 255, 0.02);
 }
 
-.trash-row-icon {
+.trash-log-row:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.22);
+}
+
+.trash-log-row:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.trash-log-time {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
   color: #8e8e93;
-  display: flex;
-  align-items: center;
   flex-shrink: 0;
 }
 
-.trash-row-info {
+.trash-log-tag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #aeaeb2;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+
+.trash-log-name {
   flex: 1;
   overflow: hidden;
-}
-
-.trash-row-name {
-  font-size: 12px;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
-  display: block;
-}
-
-.trash-row-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
+  white-space: nowrap;
+  color: #f2f2f4;
 }
 
 .trash-action-btn {
@@ -842,11 +888,6 @@ body,
 .trash-action-btn:hover {
   color: #ffffff;
   background-color: rgba(255, 255, 255, 0.12);
-}
-
-.trash-action-btn.is-delete:hover {
-  color: #ff453a;
-  background-color: rgba(255, 69, 58, 0.15);
 }
 
 .workspace-panes-wrapper {
