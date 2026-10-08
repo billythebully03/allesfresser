@@ -1,23 +1,46 @@
 import { useState, useEffect } from 'react'
-import { DocumentItem } from '@/entities/document/types'
+import { ChapterItem, PageItem, extractTitle } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
 import { StatusBar } from './StatusBar'
 
-const INITIAL_DOCS: DocumentItem[] = [
-  { id: '1', title: 'Глава первая', content: '', updatedAt: Date.now() },
-  { id: '2', title: 'Глава вторая', content: '', updatedAt: Date.now() },
-  { id: '3', title: 'Черновик', content: '', updatedAt: Date.now() },
+const INITIAL_CHAPTERS: ChapterItem[] = [
+  {
+    id: 'ch-1',
+    title: 'Глава 1',
+    isOpen: true,
+    updatedAt: Date.now(),
+    pages: [
+      {
+        id: 'pg-1',
+        title: 'В ту ночь шел дождь',
+        content: 'В ту ночь шел дождь. Они встретились у моста...',
+        updatedAt: Date.now(),
+      },
+    ],
+  },
+  {
+    id: 'ch-2',
+    title: 'Глава 2',
+    isOpen: true,
+    updatedAt: Date.now(),
+    pages: [
+      {
+        id: 'pg-2',
+        title: 'Без названия',
+        content: '',
+        updatedAt: Date.now(),
+      },
+    ],
+  },
 ]
 
 export function WorkbenchLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [documents, setDocuments] = useState<DocumentItem[]>(INITIAL_DOCS)
-  const [activeId, setActiveId] = useState<string>('1')
+  const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
+  const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
-
-  const activeDoc = documents.find((doc) => doc.id === activeId) ?? documents[0]
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -31,32 +54,216 @@ export function WorkbenchLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  let activePage: PageItem | undefined
+  for (const chapter of chapters) {
+    const found = chapter.pages.find((p) => p.id === activePageId)
+    if (found) {
+      activePage = found
+      break
+    }
+  }
+
+  if (!activePage && chapters[0]?.pages[0]) {
+    activePage = chapters[0].pages[0]
+  }
+
+  const currentContent = activePage ? activePage.content : ''
+
   const handleContentChange = (newContent: string) => {
-    setDocuments((prev) =>
-      prev.map((doc) =>
-        doc.id === activeId
-          ? { ...doc, content: newContent, updatedAt: Date.now() }
-          : doc,
+    if (!activePage) return
+    const newTitle = extractTitle(newContent)
+    setChapters((prev) =>
+      prev.map((chapter) => ({
+        ...chapter,
+        pages: chapter.pages.map((page) =>
+          page.id === activePageId
+            ? {
+                ...page,
+                content: newContent,
+                title: newTitle,
+                updatedAt: Date.now(),
+              }
+            : page,
+        ),
+      })),
+    )
+  }
+
+  const handleToggleChapter = (chapterId: string) => {
+    setChapters((prev) =>
+      prev.map((ch) =>
+        ch.id === chapterId ? { ...ch, isOpen: !ch.isOpen } : ch,
       ),
     )
   }
 
-  const handleCursorMove = (line: number, column: number) => {
-    setCursor({ line, column })
+  const handleSelectPage = (_chapterId: string, pageId: string) => {
+    setActivePageId(pageId)
   }
 
-  const wordCount = activeDoc.content.trim()
-    ? activeDoc.content.trim().split(/\s+/).length
+  const handleAddChapter = () => {
+    const newChapterIndex = chapters.length + 1
+    const newPageId = `pg-${Date.now()}`
+    const newChapter: ChapterItem = {
+      id: `ch-${Date.now()}`,
+      title: `Глава ${newChapterIndex}`,
+      isOpen: true,
+      updatedAt: Date.now(),
+      pages: [
+        {
+          id: newPageId,
+          title: 'Без названия',
+          content: '',
+          updatedAt: Date.now(),
+        },
+      ],
+    }
+    setChapters((prev) => [...prev, newChapter])
+    setActivePageId(newPageId)
+  }
+
+  const handleAddPage = (chapterId: string) => {
+    const newPage: PageItem = {
+      id: `pg-${Date.now()}`,
+      title: 'Без названия',
+      content: '',
+      updatedAt: Date.now(),
+    }
+    setChapters((prev) =>
+      prev.map((ch) =>
+        ch.id === chapterId
+          ? { ...ch, isOpen: true, pages: [...ch.pages, newPage] }
+          : ch,
+      ),
+    )
+    setActivePageId(newPage.id)
+  }
+
+  const handleDuplicateChapter = (chapterId: string) => {
+    const index = chapters.findIndex((ch) => ch.id === chapterId)
+    if (index === -1) return
+    const source = chapters[index]
+    const duplicated: ChapterItem = {
+      ...source,
+      id: `ch-${Date.now()}`,
+      title: `${source.title} (копия)`,
+      updatedAt: Date.now(),
+      pages: source.pages.map((p, idx) => ({
+        ...p,
+        id: `pg-${Date.now()}-${idx}`,
+        updatedAt: Date.now(),
+      })),
+    }
+    setChapters((prev) => [
+      ...prev.slice(0, index + 1),
+      duplicated,
+      ...prev.slice(index + 1),
+    ])
+    if (duplicated.pages[0]) {
+      setActivePageId(duplicated.pages[0].id)
+    }
+  }
+
+  const handleDeleteChapter = (chapterId: string) => {
+    setChapters((prev) => {
+      const remaining = prev.filter((ch) => ch.id !== chapterId)
+      if (remaining.length === 0) {
+        const fallbackPageId = `pg-${Date.now()}`
+        const fallback: ChapterItem = {
+          id: `ch-${Date.now()}`,
+          title: 'Глава 1',
+          isOpen: true,
+          updatedAt: Date.now(),
+          pages: [
+            {
+              id: fallbackPageId,
+              title: 'Без названия',
+              content: '',
+              updatedAt: Date.now(),
+            },
+          ],
+        }
+        setActivePageId(fallbackPageId)
+        return [fallback]
+      }
+      const isCurrentActiveRemoved = !remaining.some((ch) =>
+        ch.pages.some((p) => p.id === activePageId),
+      )
+      if (isCurrentActiveRemoved && remaining[0]?.pages[0]) {
+        setActivePageId(remaining[0].pages[0].id)
+      }
+      return remaining
+    })
+  }
+
+  const handleDuplicatePage = (chapterId: string, pageId: string) => {
+    setChapters((prev) =>
+      prev.map((ch) => {
+        if (ch.id !== chapterId) return ch
+        const pageIndex = ch.pages.findIndex((p) => p.id === pageId)
+        if (pageIndex === -1) return ch
+        const sourcePage = ch.pages[pageIndex]
+        const duplicatedPage: PageItem = {
+          ...sourcePage,
+          id: `pg-${Date.now()}`,
+          title: `${sourcePage.title} (копия)`,
+          updatedAt: Date.now(),
+        }
+        const updatedPages = [
+          ...ch.pages.slice(0, pageIndex + 1),
+          duplicatedPage,
+          ...ch.pages.slice(pageIndex + 1),
+        ]
+        setActivePageId(duplicatedPage.id)
+        return { ...ch, pages: updatedPages }
+      }),
+    )
+  }
+
+  const handleDeletePage = (chapterId: string, pageId: string) => {
+    setChapters((prev) =>
+      prev.map((ch) => {
+        if (ch.id !== chapterId) return ch
+        const remainingPages = ch.pages.filter((p) => p.id !== pageId)
+        if (remainingPages.length === 0) {
+          const newFallbackPage: PageItem = {
+            id: `pg-${Date.now()}`,
+            title: 'Без названия',
+            content: '',
+            updatedAt: Date.now(),
+          }
+          if (activePageId === pageId) {
+            setActivePageId(newFallbackPage.id)
+          }
+          return { ...ch, pages: [newFallbackPage] }
+        }
+        if (activePageId === pageId) {
+          setActivePageId(remainingPages[0].id)
+        }
+        return { ...ch, pages: remainingPages }
+      }),
+    )
+  }
+
+  const wordCount = currentContent.trim()
+    ? currentContent.trim().split(/\s+/).length
     : 0
 
   return (
     <div className="workbench-root">
       <Sidebar
         isOpen={isSidebarOpen}
-        documents={documents}
-        activeId={activeId}
-        onSelect={setActiveId}
+        chapters={chapters}
+        activePageId={activePageId}
         onToggle={() => setIsSidebarOpen(false)}
+        onToggleChapter={handleToggleChapter}
+        onSelectPage={handleSelectPage}
+        onAddChapter={handleAddChapter}
+        onAddPage={handleAddPage}
+        onDuplicateChapter={handleDuplicateChapter}
+        onDeleteChapter={handleDeleteChapter}
+        onDuplicatePage={handleDuplicatePage}
+        onDeletePage={handleDeletePage}
       />
       <div className={`workspace-outer ${isSidebarOpen ? '' : 'is-full'}`}>
         <main className="workspace-island">
@@ -103,9 +310,9 @@ export function WorkbenchLayout() {
             </div>
           )}
           <EditorArea
-            content={activeDoc.content}
+            content={currentContent}
             onChange={handleContentChange}
-            onCursorMove={handleCursorMove}
+            onCursorMove={(line, column) => setCursor({ line, column })}
           />
         </main>
         <StatusBar wordCount={wordCount} cursor={cursor} />
