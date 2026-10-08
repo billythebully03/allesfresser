@@ -669,9 +669,9 @@ export function WorkbenchLayout() {
       />
 
       <div className={`workspace-outer ${isSidebarOpen ? '' : 'is-full'}`}>
-        <main ref={islandRef} className="workspace-island">
-          {!isSidebarOpen && (
-            <div className="sidebar-open-anchor">
+        {!isSidebarOpen && (
+          <div className="chapter-tabs-header">
+            <div className="sidebar-open-anchor-static">
               <Tooltip
                 label="Показать меню"
                 shortcut={{ mac: '⌘B', win: 'Ctrl+B' }}
@@ -711,8 +711,47 @@ export function WorkbenchLayout() {
                 </button>
               </Tooltip>
             </div>
-          )}
 
+            <div className="chapter-tabs-list">
+              {chapters.map((ch, idx) => {
+                const isActive = ch.id === primaryChapter?.id
+                return (
+                  <button
+                    key={ch.id}
+                    className={`chapter-tab ${isActive ? 'is-active' : ''}`}
+                    style={{ animationDelay: `${idx * 32}ms` }}
+                    onClick={() => {
+                      if (ch.pages[0]) {
+                        setSecondaryDraft(null)
+                        setViewBasePageId(ch.pages[0].id)
+                        setActiveCursorPageId(ch.pages[0].id)
+                      }
+                    }}
+                  >
+                    <svg
+                      className="chapter-tab-icon"
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+                      <path d="M6 6h10" />
+                      <path d="M6 10h10" />
+                    </svg>
+                    <span className="chapter-tab-title">{ch.title || `Глава ${idx + 1}`}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <main ref={islandRef} className="workspace-island">
           <SplitCornerHandle
             isSplit={isSplit}
             onDragProgress={handleCornerDragProgress}
