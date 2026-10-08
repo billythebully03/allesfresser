@@ -27,13 +27,15 @@ export function EditorArea({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [isShaking, setIsShaking] = useState(false)
-  const shakeTimerRef = useRef<number | null>(null)
+  const isShakingLockRef = useRef(false)
 
   const triggerShake = () => {
-    if (isShaking) return
+    if (isShakingLockRef.current) return
+    isShakingLockRef.current = true
     setIsShaking(true)
-    shakeTimerRef.current = window.setTimeout(() => {
+    setTimeout(() => {
       setIsShaking(false)
+      isShakingLockRef.current = false
     }, 400)
   }
 
@@ -59,8 +61,8 @@ export function EditorArea({
 
   const handleTitleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
-      const currentLines = title.split('\n').length
-      if (currentLines >= 3) {
+      const lineCount = title.split('\n').length
+      if (lineCount >= 3) {
         e.preventDefault()
         triggerShake()
         return
@@ -73,7 +75,7 @@ export function EditorArea({
   }
 
   const handleTitleInput = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    const nextValue = e.target.value
+    const nextVal = e.target.value
     const target = e.target
 
     const clone = document.createElement('textarea')
@@ -87,20 +89,20 @@ export function EditorArea({
     clone.style.position = 'absolute'
     clone.style.left = '-9999px'
     clone.style.height = 'auto'
-    clone.value = nextValue
+    clone.value = nextVal
     document.body.appendChild(clone)
 
     const lineHeight = 33
-    const maxAllowedHeight = lineHeight * 3 + 8
-    const exceeds = clone.scrollHeight > maxAllowedHeight || nextValue.split('\n').length > 3
+    const maxHeight = lineHeight * 3 + 6
+    const isExceeded = clone.scrollHeight > maxHeight || nextVal.split('\n').length > 3
     document.body.removeChild(clone)
 
-    if (exceeds) {
+    if (isExceeded) {
       triggerShake()
       return
     }
 
-    onTitleChange(nextValue)
+    onTitleChange(nextVal)
   }
 
   const handleContentChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
