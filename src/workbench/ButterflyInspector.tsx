@@ -41,7 +41,7 @@ function RollerValue({
       setDisplay({ prev: display.current, current: value })
       const timer = setTimeout(() => {
         setDisplay({ prev: null, current: value })
-      }, 340)
+      }, 420)
       return () => clearTimeout(timer)
     }
   }, [value, display.current])
@@ -100,11 +100,12 @@ export function ButterflyInspector({
   }
 
   const triggerToastDismiss = () => {
+    if (isToastLeaving) return
     setIsToastLeaving(true)
     setTimeout(() => {
       setShowToast(false)
       setIsToastLeaving(false)
-    }, 280)
+    }, 360)
   }
 
   const handleSaveSelectionNote = () => {
@@ -133,7 +134,7 @@ export function ButterflyInspector({
     if (showToast && !isToastLeaving) {
       const timer = setTimeout(() => {
         triggerToastDismiss()
-      }, 5000)
+      }, 4800)
       return () => clearTimeout(timer)
     }
   }, [showToast, isToastLeaving])
@@ -349,7 +350,7 @@ export function ButterflyInspector({
                           if (isStackHovered) {
                             const step = Math.ceil(idx / 2)
                             const dir = idx === 0 ? 0 : idx % 2 === 1 ? -1 : 1
-                            translateY = dir * step * 54
+                            translateY = dir * step * 56
                           }
                           return (
                             <div
