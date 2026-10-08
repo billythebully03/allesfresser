@@ -25,7 +25,7 @@ export function TrashModal({
     setTimeout(() => {
       setIsOpen(false)
       setIsClosing(false)
-    }, 280)
+    }, 180)
   }
 
   const handleToggle = () => {
@@ -109,17 +109,12 @@ export function TrashModal({
       {isOpen && (
         <div
           ref={modalRef}
-          className={`trash-finder-window ${isClosing ? 'is-genie-out' : 'is-genie-in'}`}
+          className={`trash-finder-window ${isClosing ? 'is-closing' : 'is-opening'}`}
         >
           <div className="trash-finder-header">
             <div className="trash-finder-header-left">
-              <button
-                className="trash-window-close-dot"
-                onClick={handleClose}
-                aria-label="Закрыть"
-              />
               <span className="trash-finder-title">Корзина</span>
-              <span className="trash-count-badge">{items.length}</span>
+              <span className="trash-count-circle">{items.length}</span>
             </div>
             {hasItems && (
               <button className="trash-clear-all-btn" onClick={onClearAll}>
@@ -145,8 +140,10 @@ export function TrashModal({
                   <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
                   <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
                 </svg>
-                <span className="trash-empty-title">Корзина пуста</span>
-                <span className="trash-empty-sub">Удаленные главы и страницы отображаются здесь</span>
+                <span className="trash-empty-title">Корзина пока пуста</span>
+                <span className="trash-empty-sub">
+                  Удаленные главы и страницы будут появляться здесь
+                </span>
               </div>
             ) : (
               <div className="trash-items-scroll">
