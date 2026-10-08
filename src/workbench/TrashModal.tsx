@@ -69,41 +69,23 @@ export function TrashModal({
       <button
         className={`trash-corner-button ${hasItems ? 'is-full' : ''} ${isOpen ? 'is-active' : ''}`}
         onClick={handleToggle}
-        aria-label="Корзина"
+        aria-label="Недавнее"
+        title="Недавнее"
       >
-        {hasItems ? (
-          <svg
-            width="17"
-            height="17"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3 6h18" />
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-            <line x1="10" y1="11" x2="10" y2="17" />
-            <line x1="14" y1="11" x2="14" y2="17" />
-          </svg>
-        ) : (
-          <svg
-            width="17"
-            height="17"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3 6h18" />
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-          </svg>
-        )}
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+          <path d="M3 3v5h5" />
+          <polyline points="12 7 12 12 15 15" />
+        </svg>
       </button>
 
       {isOpen && (
@@ -113,7 +95,7 @@ export function TrashModal({
         >
           <div className="trash-finder-header">
             <div className="trash-finder-header-left">
-              <span className="trash-finder-title">Корзина</span>
+              <span className="trash-finder-title">Недавнее</span>
               <span className="trash-count-circle">{items.length}</span>
             </div>
             {hasItems && (
@@ -136,11 +118,11 @@ export function TrashModal({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <path d="M3 6h18" />
-                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                  <polyline points="12 7 12 12 15 15" />
                 </svg>
-                <span className="trash-empty-title">Корзина пока пуста</span>
+                <span className="trash-empty-title">В недавнем пусто</span>
                 <span className="trash-empty-sub">
                   Удаленные главы и страницы будут появляться здесь
                 </span>
