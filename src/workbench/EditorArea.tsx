@@ -13,6 +13,7 @@ interface EditorAreaProps {
   title: string
   content: string
   isFirstPageOfChapter: boolean
+  isInspectorOpen?: boolean
   onTitleChange: (value: string) => void
   onContentChange: (value: string) => void
   onCursorMove?: (line: number, column: number) => void
@@ -28,6 +29,7 @@ export function EditorArea({
   title,
   content,
   isFirstPageOfChapter,
+  isInspectorOpen = false,
   onTitleChange,
   onContentChange,
   onCursorMove,
@@ -108,16 +110,25 @@ export function EditorArea({
       onCursorMove(currentLine, currentColumn)
     }
 
-    if (onSelectionChange) {
+    if (isInspectorOpen && onSelectionChange) {
       if (cursorEnd > cursorIndex) {
-        const selectedText = target.value.slice(cursorIndex, cursorEnd)
-        const wordCount = selectedText.trim()
-          ? selectedText.trim().split(/\s+/).length
+        const rawSelected = target.value.slice(cursorIndex, cursorEnd)
+        const wordCount = rawSelected.trim()
+          ? rawSelected.trim().split(/\s+/).length
           : 0
+
+        const beforeSlice = target.value.slice(0, cursorIndex)
+        const beforeWords = beforeSlice.trim().split(/\s+/).slice(-4).join(' ')
+
+        const afterSlice = target.value.slice(cursorEnd)
+        const afterWords = afterSlice.trim().split(/\s+/).slice(0, 4).join(' ')
+
         onSelectionChange({
-          text: selectedText,
+          text: rawSelected,
+          beforeContext: beforeWords,
+          afterContext: afterWords,
           wordCount,
-          charCount: selectedText.length,
+          charCount: rawSelected.length,
         })
       } else {
         onSelectionChange(null)
