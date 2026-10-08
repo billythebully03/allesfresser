@@ -1,11 +1,22 @@
 interface StatusBarProps {
   wordCount: number
+  cursor: {
+    line: number
+    column: number
+  }
 }
 
-export function StatusBar({ wordCount }: StatusBarProps) {
+export function StatusBar({ wordCount, cursor }: StatusBarProps) {
   return (
     <footer className="statusbar">
-      <span>{wordCount} слов</span>
+      <div className="statusbar-group">
+        <span>{wordCount} слов</span>
+      </div>
+      <div className="statusbar-group">
+        <span>
+          Стр {cursor.line}, Кол {cursor.column}
+        </span>
+      </div>
     </footer>
   )
 }
