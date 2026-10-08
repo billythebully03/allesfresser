@@ -61,6 +61,7 @@ export function Sidebar({
   const [contextTarget, setContextTarget] = useState<ContextMenuTarget | null>(null)
   const [editingTarget, setEditingTarget] = useState<EditingTarget | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [isResizing, setIsResizing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const isResizingRef = useRef(false)
   const startXRef = useRef(0)
@@ -76,6 +77,7 @@ export function Sidebar({
   const handleResizePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId)
     isResizingRef.current = true
+    setIsResizing(true)
     startXRef.current = e.clientX
     startWidthRef.current = width
   }
@@ -90,6 +92,7 @@ export function Sidebar({
   const handleResizePointerUp = (e: PointerEvent<HTMLDivElement>) => {
     if (!isResizingRef.current) return
     isResizingRef.current = false
+    setIsResizing(false)
     e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
@@ -196,7 +199,7 @@ export function Sidebar({
 
   return (
     <aside
-      className={`sidebar ${isOpen ? '' : 'is-collapsed'}`}
+      className={`sidebar ${isOpen ? '' : 'is-collapsed'} ${isResizing ? 'is-resizing' : ''}`}
       style={{ width: isOpen ? `${width}px` : 0 }}
     >
       <div className="sidebar-inner">
