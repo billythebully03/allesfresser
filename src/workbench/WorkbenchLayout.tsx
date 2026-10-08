@@ -105,8 +105,6 @@ export function WorkbenchLayout() {
     updatedAt: Date.now(),
   }
 
-  const nextPageForOverscroll = secondaryPage || null
-
   const ensureSecondaryDraft = () => {
     if (!isNextPageAvailable && !secondaryDraft) {
       setSecondaryDraft({
@@ -357,8 +355,23 @@ export function WorkbenchLayout() {
       ),
     )
     setSecondaryDraft(null)
-    setViewBasePageId(newPage.id)
-    setActiveCursorPageId(newPage.id)
+
+    if (isSplit) {
+      const activeIsPrimary = activeCursorPageId === primaryPage?.id
+      if (activeIsPrimary && primaryPage) {
+        setViewBasePageId(primaryPage.id)
+        setActiveCursorPageId(newPage.id)
+      } else {
+        const prevId = secondaryPage ? secondaryPage.id : primaryPage?.id
+        if (prevId) {
+          setViewBasePageId(prevId)
+        }
+        setActiveCursorPageId(newPage.id)
+      }
+    } else {
+      setViewBasePageId(newPage.id)
+      setActiveCursorPageId(newPage.id)
+    }
   }
 
   const handleDuplicateChapter = (chapterId: string) => {
@@ -566,7 +579,11 @@ export function WorkbenchLayout() {
   const isRailVisible = sidebarWidth >= 285
 
   return (
-    <div className={`workbench-root ${isRailVisible ? 'has-rail' : ''}`}>
+    <div
+      className={`workbench-root ${isRailVisible ? 'has-rail' : ''} ${
+        !isSidebarOpen ? 'is-sidebar-hidden' : ''
+      }`}
+    >
       <div
         className={`tab-rail ${isRailVisible ? 'is-visible' : ''} ${
           isSidebarOpen ? 'is-on-light' : 'is-on-dark'
@@ -580,9 +597,7 @@ export function WorkbenchLayout() {
               className="tab-rail-logo"
             />
           </div>
-        </div>
 
-        <div className="tab-rail-bottom">
           <button
             className={`tab-rail-btn ${activeTab === 'canvas' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('canvas')}
@@ -726,18 +741,9 @@ export function WorkbenchLayout() {
                 title={primaryPage ? primaryPage.title : ''}
                 content={primaryPage ? primaryPage.content : ''}
                 isFirstPageOfChapter={isFirstPage}
-                nextPage={!isSplit ? nextPageForOverscroll : null}
-                allowOverscrollNext={!isSplit}
                 onTitleChange={handlePrimaryTitleChange}
                 onContentChange={handlePrimaryContentChange}
                 onCursorMove={(line, column) => setCursor({ line, column })}
-                onNavigateNextPage={() => {
-                  if (nextPageForOverscroll) {
-                    setSecondaryDraft(null)
-                    setViewBasePageId(nextPageForOverscroll.id)
-                    setActiveCursorPageId(nextPageForOverscroll.id)
-                  }
-                }}
               />
             </div>
 
