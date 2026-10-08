@@ -152,7 +152,7 @@ export function EditorArea({
   }
 
   const visibleLines: number[] = []
-  for (let offset = -4; offset <= 4; offset++) {
+  for (let offset = -6; offset <= 6; offset++) {
     const lineNum = activeLine + offset
     if (lineNum >= 1) {
       visibleLines.push(lineNum)
@@ -184,10 +184,12 @@ export function EditorArea({
               {visibleLines.map((lineNum) => {
                 const distance = Math.abs(lineNum - activeLine)
                 let opacity = 1
-                if (distance === 1) opacity = 0.75
-                else if (distance === 2) opacity = 0.50
-                else if (distance === 3) opacity = 0.25
-                else if (distance === 4) opacity = 0.10
+                if (distance === 1) opacity = 0.85
+                else if (distance === 2) opacity = 0.70
+                else if (distance === 3) opacity = 0.55
+                else if (distance === 4) opacity = 0.40
+                else if (distance === 5) opacity = 0.25
+                else if (distance === 6) opacity = 0.10
 
                 const topOffset = (lineNum - 1) * LINE_HEIGHT_PX
 
