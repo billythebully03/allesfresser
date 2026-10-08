@@ -32,6 +32,7 @@ export function EditorArea({
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null)
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [isShaking, setIsShaking] = useState(false)
+  const [activeLine, setActiveLine] = useState(1)
 
   const triggerShake = () => {
     if (!isShaking) {
@@ -78,20 +79,25 @@ export function EditorArea({
   const updateCursorPosition = (
     e: SyntheticEvent<HTMLTextAreaElement, Event>,
   ) => {
-    if (!onCursorMove) return
     const target = e.currentTarget
     const cursorIndex = target.selectionStart ?? 0
     const textBeforeCursor = target.value.slice(0, cursorIndex)
     const lines = textBeforeCursor.split('\n')
     const currentLine = lines.length
     const currentColumn = lines[lines.length - 1].length + 1
-    onCursorMove(currentLine, currentColumn)
+    setActiveLine(currentLine)
+    if (onCursorMove) {
+      onCursorMove(currentLine, currentColumn)
+    }
   }
 
   const handleContentChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     onContentChange(e.target.value)
     updateCursorPosition(e)
   }
+
+  const totalLines = Math.max(1, content.split('\n').length)
+  const lineNumbers = Array.from({ length: totalLines }, (_, idx) => idx + 1)
 
   return (
     <div ref={viewportRef} className="editor-viewport">
@@ -112,16 +118,49 @@ export function EditorArea({
             }
             spellCheck={false}
           />
-          <textarea
-            ref={contentTextareaRef}
-            className="editor-textarea"
-            value={content}
-            onChange={handleContentChange}
-            onKeyUp={updateCursorPosition}
-            onClick={updateCursorPosition}
-            spellCheck={false}
-            placeholder="Текст страницы..."
-          />
+          <div className="editor-body-with-gutter">
+            <div className="editor-line-gutter" aria-hidden="true">
+              {lineNumbers.map((lineNum) => {
+                const distance = Math.abs(lineNum - activeLine)
+                if (distance > 3) return null
+
+                let opacity = 1
+                if (distance === 1) opacity = 0.65
+                else if (distance === 2) opacity = 0.35
+                else if (distance === 3) opacity = 0.15
+
+                const topOffset = (lineNum - 1) * 26.4
+
+                return (
+                  <div
+                    key={lineNum}
+                    className="editor-line-marker"
+                    style={{
+                      transform: `translate3d(0, ${topOffset}px, 0)`,
+                      opacity,
+                    }}
+                  >
+                    {lineNum === activeLine ? (
+                      <span className="editor-line-dot" />
+                    ) : (
+                      <span className="editor-line-number">{lineNum}</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <textarea
+              ref={contentTextareaRef}
+              className="editor-textarea"
+              value={content}
+              onChange={handleContentChange}
+              onKeyUp={updateCursorPosition}
+              onClick={updateCursorPosition}
+              onSelect={updateCursorPosition}
+              spellCheck={false}
+              placeholder="Текст страницы..."
+            />
+          </div>
         </div>
       </div>
     </div>
