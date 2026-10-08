@@ -441,54 +441,45 @@ body,
   z-index: 100;
   overflow: hidden;
   color: #ffffff;
-  transform-origin: calc(100% - 13px) calc(100% + 20px);
+  transform-origin: bottom right;
 }
 
-.trash-finder-window.is-genie-in {
-  animation: macGenieIn 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.15) forwards;
+.trash-finder-window.is-opening {
+  animation: windowPopupIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.trash-finder-window.is-genie-out {
-  animation: macGenieOut 0.28s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards;
+.trash-finder-window.is-closing {
+  animation: windowPopupOut 0.15s ease-in forwards;
 }
 
-@keyframes macGenieIn {
-  0% {
+@keyframes windowPopupIn {
+  from {
     opacity: 0;
-    transform: perspective(600px) rotateX(16deg) rotateY(-8deg) scale3d(0.08, 0.08, 1) translate3d(24px, 40px, 0);
+    transform: scale(0.75);
   }
-  65% {
+  to {
     opacity: 1;
-    transform: perspective(600px) rotateX(-2deg) rotateY(1deg) scale3d(1.02, 1.01, 1) translate3d(0, 0, 0);
-  }
-  100% {
-    opacity: 1;
-    transform: perspective(600px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1) translate3d(0, 0, 0);
+    transform: scale(1);
   }
 }
 
-@keyframes macGenieOut {
-  0% {
+@keyframes windowPopupOut {
+  from {
     opacity: 1;
-    transform: perspective(600px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1) translate3d(0, 0, 0);
+    transform: scale(1);
   }
-  40% {
-    opacity: 0.9;
-    transform: perspective(600px) rotateX(-4deg) rotateY(2deg) scale3d(0.85, 0.75, 1) translate3d(12px, 16px, 0);
-  }
-  100% {
+  to {
     opacity: 0;
-    transform: perspective(600px) rotateX(18deg) rotateY(-10deg) scale3d(0.06, 0.06, 1) translate3d(24px, 40px, 0);
+    transform: scale(0.75);
   }
 }
 
 .trash-finder-header {
-  height: 38px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 14px;
   flex-shrink: 0;
 }
 
@@ -498,33 +489,24 @@ body,
   gap: 8px;
 }
 
-.trash-window-close-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  border: none;
-  background-color: #ff5f56;
-  padding: 0;
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-
-.trash-window-close-dot:hover {
-  opacity: 0.8;
-}
-
 .trash-finder-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
-.trash-count-badge {
+.trash-count-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.16);
   font-size: 10px;
-  background-color: rgba(255, 255, 255, 0.14);
-  padding: 1px 6px;
-  border-radius: 10px;
-  color: #aeaeb2;
+  font-weight: 600;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .trash-clear-all-btn {
@@ -576,7 +558,7 @@ body,
 .trash-items-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 10px;
+  padding: 4px 10px 10px 10px;
   display: flex;
   flex-direction: column;
   gap: 12px;
