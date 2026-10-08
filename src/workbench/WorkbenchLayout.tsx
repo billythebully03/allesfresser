@@ -20,19 +20,29 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
         content: 'В ту ночь шел дождь. Они встретились у моста...',
         updatedAt: Date.now(),
       },
+      {
+        id: 'pg-2',
+        title: 'Тени на воде',
+        content: 'Фонари отражались в мокром асфальте. Он сделал шаг вперед...',
+        updatedAt: Date.now(),
+      },
     ],
   },
 ]
 
 export function WorkbenchLayout() {
+  const [sidebarWidth, setSidebarWidth] = useState(250)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [activeTab, setActiveTab] = useState<'canvas' | 'settings'>('canvas')
   const [isSplit, setIsSplit] = useState(false)
+  const [focusedPane, setFocusedPane] = useState<'primary' | 'secondary'>('primary')
   const [leftPercent, setLeftPercent] = useState(100)
   const [savedSplitPercent, setSavedSplitPercent] = useState(50)
   const [animationMode, setAnimationMode] = useState<'instant' | 'smooth'>('smooth')
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
+  const [primaryPageId, setPrimaryPageId] = useState<string>('pg-1')
+  const [secondaryPageId, setSecondaryPageId] = useState<string>('pg-2')
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
-  const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
   const createdPageIdForSplitRef = useRef<string | null>(null)
   const isDraggingDividerRef = useRef(false)
@@ -55,7 +65,7 @@ export function WorkbenchLayout() {
   let primaryPageIndex = -1
 
   for (const chapter of chapters) {
-    const index = chapter.pages.findIndex((p) => p.id === activePageId)
+    const index = chapter.pages.findIndex((p) => p.id === primaryPageId)
     if (index !== -1) {
       primaryChapter = chapter
       primaryPage = chapter.pages[index]
@@ -71,9 +81,32 @@ export function WorkbenchLayout() {
   }
 
   let secondaryPage: PageItem | undefined
-  if (primaryChapter && primaryPageIndex !== -1) {
+  for (const chapter of chapters) {
+    const p = chapter.pages.find((page) => page.id === secondaryPageId)
+    if (p) {
+      secondaryPage = p
+      break
+    }
+  }
+
+  if (!secondaryPage && primaryChapter) {
     if (primaryPageIndex + 1 < primaryChapter.pages.length) {
       secondaryPage = primaryChapter.pages[primaryPageIndex + 1]
+    }
+  }
+
+  let nextPageForOverscroll: PageItem | null = null
+  if (primaryChapter && primaryPageIndex !== -1) {
+    if (primaryPageIndex + 1 < primaryChapter.pages.length) {
+      nextPageForOverscroll = primaryChapter.pages[primaryPageIndex + 1]
+    } else {
+      const currentChapterIdx = chapters.findIndex((c) => c.id === primaryChapter?.id)
+      if (currentChapterIdx !== -1 && currentChapterIdx + 1 < chapters.length) {
+        const nextChapter = chapters[currentChapterIdx + 1]
+        if (nextChapter.pages[0]) {
+          nextPageForOverscroll = nextChapter.pages[0]
+        }
+      }
     }
   }
 
@@ -87,6 +120,7 @@ export function WorkbenchLayout() {
         updatedAt: Date.now(),
       }
       createdPageIdForSplitRef.current = newPageId
+      setSecondaryPageId(newPageId)
       setChapters((prev) =>
         prev.map((ch) =>
           ch.id === primaryChapter?.id
@@ -264,7 +298,15 @@ export function WorkbenchLayout() {
   }
 
   const handleSelectPage = (_chapterId: string, pageId: string) => {
-    setActivePageId(pageId)
+    if (isSplit) {
+      if (focusedPane === 'secondary') {
+        setSecondaryPageId(pageId)
+      } else {
+        setPrimaryPageId(pageId)
+      }
+    } else {
+      setPrimaryPageId(pageId)
+    }
   }
 
   const handleAddChapter = () => {
@@ -285,7 +327,11 @@ export function WorkbenchLayout() {
       ],
     }
     setChapters((prev) => [...prev, newChapter])
-    setActivePageId(newPageId)
+    if (isSplit && focusedPane === 'secondary') {
+      setSecondaryPageId(newPageId)
+    } else {
+      setPrimaryPageId(newPageId)
+    }
   }
 
   const handleAddPage = (chapterId: string) => {
@@ -302,7 +348,11 @@ export function WorkbenchLayout() {
           : ch,
       ),
     )
-    setActivePageId(newPage.id)
+    if (isSplit && focusedPane === 'secondary') {
+      setSecondaryPageId(newPage.id)
+    } else {
+      setPrimaryPageId(newPage.id)
+    }
   }
 
   const handleDuplicateChapter = (chapterId: string) => {
@@ -327,7 +377,7 @@ export function WorkbenchLayout() {
       ...prev.slice(index + 1),
     ])
     if (duplicated.pages[0]) {
-      setActivePageId(duplicated.pages[0].id)
+      setPrimaryPageId(duplicated.pages[0].id)
     }
   }
 
@@ -364,14 +414,14 @@ export function WorkbenchLayout() {
             },
           ],
         }
-        setActivePageId(fallbackPageId)
+        setPrimaryPageId(fallbackPageId)
         return [fallback]
       }
       const isCurrentActiveRemoved = !remaining.some((ch) =>
-        ch.pages.some((p) => p.id === activePageId),
+        ch.pages.some((p) => p.id === primaryPageId),
       )
       if (isCurrentActiveRemoved && remaining[0]?.pages[0]) {
-        setActivePageId(remaining[0].pages[0].id)
+        setPrimaryPageId(remaining[0].pages[0].id)
       }
       return remaining
     })
@@ -395,7 +445,7 @@ export function WorkbenchLayout() {
           duplicatedPage,
           ...ch.pages.slice(pageIndex + 1),
         ]
-        setActivePageId(duplicatedPage.id)
+        setPrimaryPageId(duplicatedPage.id)
         return { ...ch, pages: updatedPages }
       }),
     )
@@ -429,13 +479,13 @@ export function WorkbenchLayout() {
             content: '',
             updatedAt: Date.now(),
           }
-          if (activePageId === pageId) {
-            setActivePageId(newFallbackPage.id)
+          if (primaryPageId === pageId) {
+            setPrimaryPageId(newFallbackPage.id)
           }
           return { ...ch, pages: [newFallbackPage] }
         }
-        if (activePageId === pageId) {
-          setActivePageId(remainingPages[0].id)
+        if (primaryPageId === pageId) {
+          setPrimaryPageId(remainingPages[0].id)
         }
         return { ...ch, pages: remainingPages }
       }),
@@ -448,7 +498,7 @@ export function WorkbenchLayout() {
     if (item.type === 'chapter') {
       setChapters((prev) => [...prev, item.chapterData])
       if (item.chapterData.pages[0]) {
-        setActivePageId(item.chapterData.pages[0].id)
+        setPrimaryPageId(item.chapterData.pages[0].id)
       }
     } else {
       setChapters((prev) => {
@@ -469,7 +519,7 @@ export function WorkbenchLayout() {
         }
         return [...prev, restoredChapter]
       })
-      setActivePageId(item.pageData.id)
+      setPrimaryPageId(item.pageData.id)
     }
   }
 
@@ -487,14 +537,62 @@ export function WorkbenchLayout() {
     : 0
 
   const secondaryWidth = 100 - leftPercent
+  const showRail = isSidebarOpen && sidebarWidth >= 285
+  const currentActivePageId = focusedPane === 'secondary' ? secondaryPageId : primaryPageId
 
   return (
     <div className="workbench-root">
+      <div className={`tab-rail ${showRail ? 'is-visible' : ''}`}>
+        <button
+          className={`tab-rail-btn ${activeTab === 'canvas' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('canvas')}
+          aria-label="Холст"
+          title="Холст"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+        </button>
+
+        <button
+          className={`tab-rail-btn ${activeTab === 'settings' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+          aria-label="Настройки"
+          title="Настройки"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      </div>
+
       <Sidebar
         isOpen={isSidebarOpen}
+        width={sidebarWidth}
         chapters={chapters}
-        activePageId={activePageId}
+        activePageId={currentActivePageId}
         onToggle={() => setIsSidebarOpen(false)}
+        onWidthChange={setSidebarWidth}
         onToggleChapter={handleToggleChapter}
         onSelectPage={handleSelectPage}
         onAddChapter={handleAddChapter}
@@ -572,25 +670,28 @@ export function WorkbenchLayout() {
           >
             <div
               className={`workspace-pane ${
-                activePageId === primaryPage?.id ? 'is-focused-pane' : ''
+                focusedPane === 'primary' ? 'is-focused-pane' : ''
               }`}
               style={{
                 width: `${leftPercent}%`,
               }}
-              onFocusCapture={() => {
-                if (primaryPage) setActivePageId(primaryPage.id)
-              }}
-              onClickCapture={() => {
-                if (primaryPage) setActivePageId(primaryPage.id)
-              }}
+              onFocusCapture={() => setFocusedPane('primary')}
+              onClickCapture={() => setFocusedPane('primary')}
             >
               <EditorArea
                 title={primaryPage ? primaryPage.title : ''}
                 content={contentText}
                 isFirstPageOfChapter={isFirstPage}
+                nextPage={!isSplit ? nextPageForOverscroll : null}
+                allowOverscrollNext={!isSplit}
                 onTitleChange={handlePrimaryTitleChange}
                 onContentChange={handlePrimaryContentChange}
                 onCursorMove={(line, column) => setCursor({ line, column })}
+                onNavigateNextPage={() => {
+                  if (nextPageForOverscroll) {
+                    setPrimaryPageId(nextPageForOverscroll.id)
+                  }
+                }}
               />
             </div>
 
@@ -607,18 +708,14 @@ export function WorkbenchLayout() {
                 </div>
                 <div
                   className={`workspace-pane workspace-pane-secondary ${
-                    activePageId === secondaryPage?.id ? 'is-focused-pane' : ''
+                    focusedPane === 'secondary' ? 'is-focused-pane' : ''
                   }`}
                   style={{
                     width: `${secondaryWidth}%`,
                     opacity: Math.min(1, secondaryWidth / 10),
                   }}
-                  onFocusCapture={() => {
-                    if (secondaryPage) setActivePageId(secondaryPage.id)
-                  }}
-                  onClickCapture={() => {
-                    if (secondaryPage) setActivePageId(secondaryPage.id)
-                  }}
+                  onFocusCapture={() => setFocusedPane('secondary')}
+                  onClickCapture={() => setFocusedPane('secondary')}
                 >
                   <EditorArea
                     title={secondaryPage.title}
