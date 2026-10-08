@@ -399,15 +399,14 @@ export function Sidebar({
                                 onClick={(e) => e.stopPropagation()}
                               />
                             ) : (
-                              <span
-                                className="page-title"
-                                onDoubleClick={(e) => {
-                                  e.stopPropagation()
-                                  startRename('page', page.id, page.title)
-                                }}
-                              >
-                                {pageDisplay}
-                              </span>
+                              <>
+                                <span className="page-title">
+                                  {pageDisplay}
+                                </span>
+                                {page.status && page.status !== 'none' && (
+                                  <span className={`page-status-dot is-${page.status}`} />
+                                )}
+                              </>
                             )}
                           </div>
                         )
