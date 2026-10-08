@@ -54,35 +54,37 @@ export function SplitCornerHandle({
   }
 
   return (
-    <Tooltip
-      label={
-        isSplit
-          ? 'Нажмите для закрытия'
-          : 'Потяните влево, чтобы вытянуть вторую страницу'
-      }
-    >
-      <div
-        className={`split-corner-handle ${isSplit ? 'is-active' : ''} ${
-          isPointerDown ? 'is-dragging' : ''
-        }`}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        aria-label="Разделить экран"
+    <div className="split-corner-wrapper">
+      <Tooltip
+        label={
+          isSplit
+            ? 'Нажмите для закрытия'
+            : 'Потяните влево, чтобы вытянуть вторую страницу'
+        }
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-          strokeLinecap="round"
+        <div
+          className={`split-corner-handle ${isSplit ? 'is-active' : ''} ${
+            isPointerDown ? 'is-dragging' : ''
+          }`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          aria-label="Разделить экран"
         >
-          <line x1="6" y1="2" x2="18" y2="14" />
-          <line x1="12" y1="2" x2="18" y2="8" />
-        </svg>
-      </div>
-    </Tooltip>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+          >
+            <line x1="6" y1="2" x2="18" y2="14" />
+            <line x1="12" y1="2" x2="18" y2="8" />
+          </svg>
+        </div>
+      </Tooltip>
+    </div>
   )
 }
