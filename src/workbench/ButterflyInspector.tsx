@@ -41,20 +41,20 @@ function RollerValue({
       setDisplay({ prev: display.current, current: value })
       const timer = setTimeout(() => {
         setDisplay({ prev: null, current: value })
-      }, 260)
+      }, 340)
       return () => clearTimeout(timer)
     }
   }, [value, display.current])
 
   return (
-    <span className={`roller-container ${className}`}>
+    <div className={`roller-container ${className}`}>
       {display.prev !== null && (
         <span className="roller-item is-prev">{display.prev}</span>
       )}
       <span className={`roller-item ${display.prev !== null ? 'is-new' : 'is-enter'}`}>
         {display.current}
       </span>
-    </span>
+    </div>
   )
 }
 
@@ -74,6 +74,7 @@ export function ButterflyInspector({
   const [isStackHovered, setIsStackHovered] = useState(false)
   const [fallingCard, setFallingCard] = useState<SelectionNote | null>(null)
   const [showToast, setShowToast] = useState(false)
+  const [isToastLeaving, setIsToastLeaving] = useState(false)
 
   const chapterTotalWords = activeChapter
     ? activeChapter.pages.reduce((acc, p) => {
@@ -96,6 +97,14 @@ export function ButterflyInspector({
       hour: '2-digit',
       minute: '2-digit',
     })
+  }
+
+  const triggerToastDismiss = () => {
+    setIsToastLeaving(true)
+    setTimeout(() => {
+      setShowToast(false)
+      setIsToastLeaving(false)
+    }, 280)
   }
 
   const handleSaveSelectionNote = () => {
@@ -121,11 +130,13 @@ export function ButterflyInspector({
   }
 
   useEffect(() => {
-    if (showToast) {
-      const timer = setTimeout(() => setShowToast(false), 5000)
+    if (showToast && !isToastLeaving) {
+      const timer = setTimeout(() => {
+        triggerToastDismiss()
+      }, 5000)
       return () => clearTimeout(timer)
     }
-  }, [showToast])
+  }, [showToast, isToastLeaving])
 
   const mode = selectionInfo && selectionInfo.text.trim().length > 0
     ? 'selection'
@@ -157,21 +168,13 @@ export function ButterflyInspector({
         <div className="butterfly-header">
           <div className="butterfly-header-row">
             <svg
-              className="butterfly-header-icon"
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              className="butterfly-bsky-icon"
+              width="18"
+              height="18"
+              viewBox="0 0 16 16"
+              fill="currentColor"
             >
-              <path d="M12 4v16" />
-              <path d="M12 4c1.8-2 5.5-2 7.5 0 2.2 2.2 2.2 6.5 0 8.7-1.5 1.5-4.5 2.3-7.5 2.3" />
-              <path d="M12 4c-1.8-2-5.5-2-7.5 0-2.2 2.2-2.2 6.5 0 8.7 1.5 1.5 4.5 2.3 7.5 2.3" />
-              <path d="M12 15c2.5 0 5 1 6 3 1.2 2.3 0 4.5-2.5 4.5-3 0-3.5-5-3.5-7.5" />
-              <path d="M12 15c-2.5 0-5 1-6 3-1.2 2.3 0 4.5 2.5 4.5 3 0 3.5-5 3.5-7.5" />
+              <path d="M3.468 1.948C5.303 3.325 7.276 6.118 8 7.616c.725-1.498 2.698-4.29 4.532-5.668C13.855.955 16 .186 16 2.632c0 .489-.28 4.105-.444 4.692-.572 2.04-2.653 2.561-4.504 2.246 3.236.551 4.06 2.375 2.281 4.2-3.376 3.464-4.852-.87-5.23-1.98-.07-.204-.103-.3-.103-.218 0-.081-.033.014-.102.218-.379 1.11-1.855 5.444-5.231 1.98-1.778-1.825-.955-3.65 2.28-4.2-1.85.315-3.932-.205-4.503-2.246C.28 6.737 0 3.12 0 2.632 0 .186 2.145.955 3.468 1.948" />
             </svg>
             <span className="butterfly-brand">Баттерфляй</span>
           </div>
@@ -346,7 +349,7 @@ export function ButterflyInspector({
                           if (isStackHovered) {
                             const step = Math.ceil(idx / 2)
                             const dir = idx === 0 ? 0 : idx % 2 === 1 ? -1 : 1
-                            translateY = dir * step * 48
+                            translateY = dir * step * 54
                           }
                           return (
                             <div
@@ -406,21 +409,13 @@ export function ButterflyInspector({
           ) : (
             <div className="butterfly-empty-guide">
               <svg
-                className="butterfly-empty-icon"
-                width="36"
-                height="36"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+                className="butterfly-bsky-empty-icon"
+                width="40"
+                height="40"
+                viewBox="0 0 16 16"
+                fill="currentColor"
               >
-                <path d="M12 4v16" />
-                <path d="M12 4c1.8-2 5.5-2 7.5 0 2.2 2.2 2.2 6.5 0 8.7-1.5 1.5-4.5 2.3-7.5 2.3" />
-                <path d="M12 4c-1.8-2-5.5-2-7.5 0-2.2 2.2-2.2 6.5 0 8.7 1.5 1.5 4.5 2.3 7.5 2.3" />
-                <path d="M12 15c2.5 0 5 1 6 3 1.2 2.3 0 4.5-2.5 4.5-3 0-3.5-5-3.5-7.5" />
-                <path d="M12 15c-2.5 0-5 1-6 3-1.2 2.3 0 4.5 2.5 4.5 3 0 3.5-5 3.5-7.5" />
+                <path d="M3.468 1.948C5.303 3.325 7.276 6.118 8 7.616c.725-1.498 2.698-4.29 4.532-5.668C13.855.955 16 .186 16 2.632c0 .489-.28 4.105-.444 4.692-.572 2.04-2.653 2.561-4.504 2.246 3.236.551 4.06 2.375 2.281 4.2-3.376 3.464-4.852-.87-5.23-1.98-.07-.204-.103-.3-.103-.218 0-.081-.033.014-.102.218-.379 1.11-1.855 5.444-5.231 1.98-1.778-1.825-.955-3.65 2.28-4.2-1.85.315-3.932-.205-4.503-2.246C.28 6.737 0 3.12 0 2.632 0 .186 2.145.955 3.468 1.948" />
               </svg>
               <p className="butterfly-empty-text">
                 Выделите главу, страницу или фрагмент текста, чтобы активировать Баттерфлай
@@ -437,7 +432,7 @@ export function ButterflyInspector({
         )}
 
         {showToast && (
-          <div className="butterfly-toast-banner">
+          <div className={`butterfly-toast-banner ${isToastLeaving ? 'is-leaving' : 'is-entering'}`}>
             <svg
               className="butterfly-toast-icon"
               width="14"
@@ -452,7 +447,7 @@ export function ButterflyInspector({
               <button
                 className="butterfly-toast-action-link"
                 onClick={() => {
-                  setShowToast(false)
+                  triggerToastDismiss()
                   onClearSelection()
                 }}
               >
