@@ -7,19 +7,31 @@ export interface PageItem {
 
 export interface ChapterItem {
   id: string
-  customTitle?: string
+  title: string
   isOpen: boolean
   pages: PageItem[]
   updatedAt: number
 }
 
-export function getChapterTitle(chapter: ChapterItem): string {
-  if (chapter.customTitle && chapter.customTitle.trim().length > 0) {
-    return chapter.customTitle
+export function getChapterDisplayTitle(
+  chapter: ChapterItem,
+  chapterIndex: number,
+): string {
+  const trimmed = chapter.title.trim()
+  return trimmed || `Глава ${chapterIndex + 1}`
+}
+
+export function getPageDisplayTitle(
+  page: PageItem,
+  pageIndex: number,
+  chapterTitle: string,
+): string {
+  const trimmed = page.title.trim()
+  if (!trimmed) {
+    return `Страница ${pageIndex + 1}`
   }
-  const firstPage = chapter.pages[0]
-  if (firstPage && firstPage.title && firstPage.title.trim().length > 0) {
-    return firstPage.title
+  if (trimmed.toLowerCase() === chapterTitle.toLowerCase()) {
+    return `Страница ${pageIndex + 1} (${trimmed})`
   }
-  return 'Без названия'
+  return `${pageIndex + 1}. ${trimmed}`
 }
