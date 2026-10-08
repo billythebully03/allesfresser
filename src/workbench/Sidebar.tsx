@@ -37,6 +37,7 @@ interface SidebarProps {
   onDeleteChapter: (chapterId: string) => void
   onDuplicatePage: (chapterId: string, pageId: string) => void
   onDeletePage: (chapterId: string, pageId: string) => void
+  onMoveChapter: (fromIndex: number, toIndex: number) => void
 }
 
 export function Sidebar({
@@ -56,6 +57,7 @@ export function Sidebar({
   onDeleteChapter,
   onDuplicatePage,
   onDeletePage,
+  onMoveChapter,
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [contextTarget, setContextTarget] = useState<ContextMenuTarget | null>(null)
@@ -66,6 +68,7 @@ export function Sidebar({
   const isResizingRef = useRef(false)
   const startXRef = useRef(0)
   const startWidthRef = useRef(width)
+  const draggedChapterIdxRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (editingTarget && inputRef.current) {
@@ -178,7 +181,7 @@ export function Sidebar({
       })
 
       if (!query) {
-        return { chapter, pages: chapter.pages, isOpen: chapter.isOpen }
+        return { chapter, pages: chapter.pages, isOpen: chapter.isOpen, originalIndex: chIdx }
       }
 
       if (chapterMatches || matchedPages.length > 0) {
@@ -186,6 +189,7 @@ export function Sidebar({
           chapter,
           pages: chapterMatches ? chapter.pages : matchedPages,
           isOpen: true,
+          originalIndex: chIdx,
         }
       }
 
@@ -195,6 +199,7 @@ export function Sidebar({
     chapter: ChapterItem
     pages: ChapterItem['pages']
     isOpen: boolean
+    originalIndex: number
   }>
 
   return (
@@ -290,13 +295,34 @@ export function Sidebar({
         </div>
 
         <nav className="sidebar-nav">
-          {filteredChapters.map(({ chapter, pages, isOpen: isChapterOpen }, chIdx) => {
-            const chapterTitle = getChapterDisplayTitle(chapter, chIdx)
+          {filteredChapters.map(({ chapter, pages, isOpen: isChapterOpen, originalIndex }) => {
+            const chapterTitle = getChapterDisplayTitle(chapter, originalIndex)
             const isEditingChapter =
               editingTarget?.type === 'chapter' && editingTarget.id === chapter.id
 
             return (
-              <div key={chapter.id} className="chapter-node">
+              <div
+                key={chapter.id}
+                className="chapter-node"
+                draggable={!editingTarget && !searchQuery}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', String(originalIndex))
+                  draggedChapterIdxRef.current = originalIndex
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  if (
+                    draggedChapterIdxRef.current !== null &&
+                    draggedChapterIdxRef.current !== originalIndex
+                  ) {
+                    onMoveChapter(draggedChapterIdxRef.current, originalIndex)
+                    draggedChapterIdxRef.current = originalIndex
+                  }
+                }}
+                onDragEnd={() => {
+                  draggedChapterIdxRef.current = null
+                }}
+              >
                 <div
                   className="chapter-item"
                   onClick={() => onToggleChapter(chapter.id)}
