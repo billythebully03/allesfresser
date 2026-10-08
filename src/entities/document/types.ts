@@ -18,7 +18,7 @@ export function getChapterTitle(chapter: ChapterItem): string {
     return chapter.customTitle
   }
   const firstPage = chapter.pages[0]
-  if (firstPage && firstPage.title.trim().length > 0) {
+  if (firstPage && firstPage.title && firstPage.title.trim().length > 0) {
     return firstPage.title
   }
   return 'Без названия'
