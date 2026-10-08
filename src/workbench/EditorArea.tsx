@@ -50,9 +50,20 @@ export function EditorArea({
     el.style.height = `${newHeight}px`
   }
 
+  const adjustContentHeight = () => {
+    const el = contentTextareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }
+
   useEffect(() => {
     adjustTitleHeight()
   }, [title])
+
+  useEffect(() => {
+    adjustContentHeight()
+  }, [content])
 
   const handleTitleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
@@ -98,8 +109,8 @@ export function EditorArea({
     updateCursorPosition(e)
   }
 
-  const handleBodyClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.target === contentTextareaRef.current) {
+  const handleContainerClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (e.target === contentTextareaRef.current || e.target === titleTextareaRef.current) {
       return
     }
 
@@ -150,7 +161,7 @@ export function EditorArea({
 
   return (
     <div ref={viewportRef} className="editor-viewport">
-      <div className="editor-inner-flow">
+      <div className="editor-inner-flow" onClick={handleContainerClick}>
         <div className="editor-container">
           <textarea
             ref={titleTextareaRef}
@@ -168,7 +179,7 @@ export function EditorArea({
             spellCheck={false}
           />
 
-          <div className="editor-body-area" onClick={handleBodyClick}>
+          <div className="editor-body-area">
             <div className="editor-floating-gutter" aria-hidden="true">
               {visibleLines.map((lineNum) => {
                 const distance = Math.abs(lineNum - activeLine)
