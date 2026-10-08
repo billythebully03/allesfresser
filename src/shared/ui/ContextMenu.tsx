@@ -32,8 +32,8 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
     }
   }, [onClose])
 
-  const menuWidth = 140
-  const menuHeight = 70
+  const menuWidth = 145
+  const menuHeight = 110
   const safeX = Math.min(x, window.innerWidth - menuWidth - 8)
   const safeY = Math.min(y, window.innerHeight - menuHeight - 8)
 
