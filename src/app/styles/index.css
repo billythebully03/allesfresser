@@ -43,6 +43,7 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: space-between;
   padding: 10px 0;
   gap: 12px;
   overflow: hidden;
@@ -64,11 +65,6 @@ body,
 }
 
 .workbench-root.has-rail .tab-rail.is-visible {
-  margin-left: 8px;
-  margin-right: 8px;
-}
-
-.workbench-root.has-rail.is-sidebar-hidden .tab-rail.is-visible {
   margin-left: 10px;
   margin-right: 10px;
 }
@@ -78,7 +74,7 @@ body,
 }
 
 .tab-rail.is-on-dark {
-  background-color: var(--bg-app);
+  background-color: #ffffff;
 }
 
 .tab-rail-top {
@@ -144,6 +140,10 @@ body,
   transition: width 0.24s cubic-bezier(0.2, 0, 0, 1),
     opacity 0.2s ease,
     filter 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.sidebar.is-resizing {
+  transition: none !important;
 }
 
 .sidebar.is-collapsed {
@@ -572,36 +572,36 @@ body,
   z-index: 100;
   overflow: hidden;
   color: #ffffff;
-  transform-origin: bottom right;
+  transform-origin: calc(100% - 13px) calc(100% + 20px);
 }
 
-.trash-finder-window.is-opening {
-  animation: windowPopupIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.trash-finder-window.is-scaling-up {
+  animation: trashScaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.trash-finder-window.is-closing {
-  animation: windowPopupOut 0.15s ease-in forwards;
+.trash-finder-window.is-scaling-down {
+  animation: trashScaleDown 0.18s cubic-bezier(0.7, 0, 0.84, 0) forwards;
 }
 
-@keyframes windowPopupIn {
-  from {
+@keyframes trashScaleUp {
+  0% {
     opacity: 0;
-    transform: scale(0.75);
+    transform: scale(0.05);
   }
-  to {
+  100% {
     opacity: 1;
     transform: scale(1);
   }
 }
 
-@keyframes windowPopupOut {
-  from {
+@keyframes trashScaleDown {
+  0% {
     opacity: 1;
     transform: scale(1);
   }
-  to {
+  100% {
     opacity: 0;
-    transform: scale(0.75);
+    transform: scale(0.05);
   }
 }
 
@@ -833,7 +833,7 @@ body,
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-workspace);
-  padding: 16px 56px 20px 56px;
+  padding: 16px 56px 20px 48px;
   margin-top: 36px;
   margin-bottom: 38px;
   scrollbar-width: thin;
@@ -890,6 +890,51 @@ body,
   30%, 60%, 90% {
     transform: translateX(5px);
   }
+}
+
+.editor-body-with-gutter {
+  position: relative;
+  flex: 1;
+  display: flex;
+  width: 100%;
+}
+
+.editor-line-gutter {
+  position: relative;
+  width: 32px;
+  flex-shrink: 0;
+  margin-right: 14px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.editor-line-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 26.4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  transition: opacity 0.15s ease;
+  will-change: transform, opacity;
+}
+
+.editor-line-number {
+  font-family: var(--font-ios);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.editor-line-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  margin-right: 2px;
 }
 
 .editor-textarea {
