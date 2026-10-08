@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, PointerEvent } from 'react'
 import { ChapterItem, PageItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { SplitCornerHandle } from './SplitCornerHandle'
@@ -26,12 +26,14 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
 export function WorkbenchLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isSplit, setIsSplit] = useState(false)
-  const [splitPercent, setSplitPercent] = useState(0)
+  const [leftPercent, setLeftPercent] = useState(100)
+  const [savedSplitPercent, setSavedSplitPercent] = useState(50)
   const [animationMode, setAnimationMode] = useState<'instant' | 'smooth'>('smooth')
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
   const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
   const createdPageIdForSplitRef = useRef<string | null>(null)
+  const isDraggingDividerRef = useRef(false)
   const islandRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -46,35 +48,35 @@ export function WorkbenchLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  let activeChapter: ChapterItem | undefined
-  let activePage: PageItem | undefined
-  let activePageIndex = -1
+  let primaryPage: PageItem | undefined
+  let primaryChapter: ChapterItem | undefined
+  let primaryPageIndex = -1
 
   for (const chapter of chapters) {
     const index = chapter.pages.findIndex((p) => p.id === activePageId)
     if (index !== -1) {
-      activeChapter = chapter
-      activePage = chapter.pages[index]
-      activePageIndex = index
+      primaryChapter = chapter
+      primaryPage = chapter.pages[index]
+      primaryPageIndex = index
       break
     }
   }
 
-  if (!activePage && chapters[0]?.pages[0]) {
-    activeChapter = chapters[0]
-    activePage = chapters[0].pages[0]
-    activePageIndex = 0
+  if (!primaryPage && chapters[0]?.pages[0]) {
+    primaryChapter = chapters[0]
+    primaryPage = chapters[0].pages[0]
+    primaryPageIndex = 0
   }
 
-  let nextPage: PageItem | undefined
-  if (activeChapter && activePageIndex !== -1) {
-    if (activePageIndex + 1 < activeChapter.pages.length) {
-      nextPage = activeChapter.pages[activePageIndex + 1]
+  let secondaryPage: PageItem | undefined
+  if (primaryChapter && primaryPageIndex !== -1) {
+    if (primaryPageIndex + 1 < primaryChapter.pages.length) {
+      secondaryPage = primaryChapter.pages[primaryPageIndex + 1]
     }
   }
 
-  const ensureNextPage = () => {
-    if (!nextPage && activeChapter) {
+  const ensureSecondaryPage = () => {
+    if (!secondaryPage && primaryChapter) {
       const newPageId = `pg-${Date.now()}`
       const newPage: PageItem = {
         id: newPageId,
@@ -85,7 +87,7 @@ export function WorkbenchLayout() {
       createdPageIdForSplitRef.current = newPageId
       setChapters((prev) =>
         prev.map((ch) =>
-          ch.id === activeChapter?.id
+          ch.id === primaryChapter?.id
             ? { ...ch, pages: [...ch.pages, newPage] }
             : ch,
         ),
@@ -112,28 +114,32 @@ export function WorkbenchLayout() {
     createdPageIdForSplitRef.current = null
   }
 
-  const handleDragProgress = (deltaX: number, isDragging: boolean) => {
+  const handleCornerDragProgress = (deltaX: number, isDragging: boolean) => {
     setAnimationMode('instant')
-    ensureNextPage()
+    ensureSecondaryPage()
     if (!islandRef.current) return
     const containerWidth = islandRef.current.clientWidth
-    const halfWidth = containerWidth / 2
+    const targetSecondaryWidthPx = isSplit
+      ? (containerWidth * (100 - savedSplitPercent)) / 100 - deltaX
+      : deltaX
 
-    let targetWidthPx = isSplit ? halfWidth - deltaX : deltaX
-    targetWidthPx = Math.max(0, Math.min(halfWidth, targetWidthPx))
-    const percent = (targetWidthPx / containerWidth) * 100
-    setSplitPercent(percent)
+    const maxSecondaryWidth = containerWidth * 0.8
+    const clampedSecondaryWidth = Math.max(0, Math.min(maxSecondaryWidth, targetSecondaryWidthPx))
+    const currentLeft = ((containerWidth - clampedSecondaryWidth) / containerWidth) * 100
+    setLeftPercent(currentLeft)
 
-    if (!isDragging && percent === 0) {
+    if (!isDragging && currentLeft >= 99) {
       cleanupEmptyAutoCreatedPage()
     }
   }
 
-  const handleSnap = (shouldSplit: boolean) => {
+  const handleCornerSnap = (shouldSplit: boolean) => {
     setAnimationMode('smooth')
     setIsSplit(shouldSplit)
-    setSplitPercent(shouldSplit ? 50 : 0)
-    if (!shouldSplit) {
+    if (shouldSplit) {
+      setLeftPercent(savedSplitPercent)
+    } else {
+      setLeftPercent(100)
       cleanupEmptyAutoCreatedPage()
     }
   }
@@ -142,17 +148,44 @@ export function WorkbenchLayout() {
     setAnimationMode('instant')
     const nextState = !isSplit
     if (nextState) {
-      ensureNextPage()
+      ensureSecondaryPage()
       setIsSplit(true)
-      setSplitPercent(50)
+      setLeftPercent(savedSplitPercent)
     } else {
       setIsSplit(false)
-      setSplitPercent(0)
+      setLeftPercent(100)
       cleanupEmptyAutoCreatedPage()
     }
   }
 
-  const isFirstPage = activeChapter?.pages[0]?.id === activePage?.id
+  const handleDividerPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    isDraggingDividerRef.current = true
+    setAnimationMode('instant')
+  }
+
+  const handleDividerPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingDividerRef.current || !islandRef.current) return
+    const rect = islandRef.current.getBoundingClientRect()
+    const rawLeft = ((e.clientX - rect.left) / rect.width) * 100
+    const clampedLeft = Math.max(20, Math.min(80, rawLeft))
+    setLeftPercent(clampedLeft)
+    setSavedSplitPercent(clampedLeft)
+  }
+
+  const handleDividerPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingDividerRef.current) return
+    isDraggingDividerRef.current = false
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
+
+  const handleDividerDoubleClick = () => {
+    setAnimationMode('smooth')
+    setLeftPercent(50)
+    setSavedSplitPercent(50)
+  }
+
+  const isFirstPage = primaryChapter?.pages[0]?.id === primaryPage?.id
 
   const updatePage = (pageId: string, updates: Partial<PageItem>) => {
     setChapters((prev) =>
@@ -165,30 +198,30 @@ export function WorkbenchLayout() {
     )
   }
 
-  const handleTitleChange = (newTitle: string) => {
-    if (!activePage) return
-    updatePage(activePage.id, { title: newTitle })
+  const handlePrimaryTitleChange = (newTitle: string) => {
+    if (!primaryPage) return
+    updatePage(primaryPage.id, { title: newTitle })
   }
 
-  const handleContentChange = (newContent: string) => {
-    if (!activePage) return
-    updatePage(activePage.id, { content: newContent })
+  const handlePrimaryContentChange = (newContent: string) => {
+    if (!primaryPage) return
+    updatePage(primaryPage.id, { content: newContent })
   }
 
-  const handleNextTitleChange = (newTitle: string) => {
-    if (!nextPage) return
-    if (createdPageIdForSplitRef.current === nextPage.id && newTitle.trim()) {
+  const handleSecondaryTitleChange = (newTitle: string) => {
+    if (!secondaryPage) return
+    if (createdPageIdForSplitRef.current === secondaryPage.id && newTitle.trim()) {
       createdPageIdForSplitRef.current = null
     }
-    updatePage(nextPage.id, { title: newTitle })
+    updatePage(secondaryPage.id, { title: newTitle })
   }
 
-  const handleNextContentChange = (newContent: string) => {
-    if (!nextPage) return
-    if (createdPageIdForSplitRef.current === nextPage.id && newContent.trim()) {
+  const handleSecondaryContentChange = (newContent: string) => {
+    if (!secondaryPage) return
+    if (createdPageIdForSplitRef.current === secondaryPage.id && newContent.trim()) {
       createdPageIdForSplitRef.current = null
     }
-    updatePage(nextPage.id, { content: newContent })
+    updatePage(secondaryPage.id, { content: newContent })
   }
 
   const handleRenameChapter = (chapterId: string, newTitle: string) => {
@@ -377,10 +410,12 @@ export function WorkbenchLayout() {
     )
   }
 
-  const contentText = activePage ? activePage.content : ''
+  const contentText = primaryPage ? primaryPage.content : ''
   const wordCount = contentText.trim()
     ? contentText.trim().split(/\s+/).length
     : 0
+
+  const secondaryWidth = 100 - leftPercent
 
   return (
     <div className="workbench-root">
@@ -447,8 +482,8 @@ export function WorkbenchLayout() {
 
           <SplitCornerHandle
             isSplit={isSplit}
-            onDragProgress={handleDragProgress}
-            onSnap={handleSnap}
+            onDragProgress={handleCornerDragProgress}
+            onSnap={handleCornerSnap}
             onInstantToggle={handleInstantToggle}
           />
 
@@ -458,37 +493,61 @@ export function WorkbenchLayout() {
             }`}
           >
             <div
-              className="workspace-pane"
+              className={`workspace-pane ${
+                activePageId === primaryPage?.id ? 'is-focused-pane' : ''
+              }`}
               style={{
-                width: `${100 - splitPercent}%`,
+                width: `${leftPercent}%`,
+              }}
+              onFocusCapture={() => {
+                if (primaryPage) setActivePageId(primaryPage.id)
+              }}
+              onClickCapture={() => {
+                if (primaryPage) setActivePageId(primaryPage.id)
               }}
             >
               <EditorArea
-                title={activePage ? activePage.title : ''}
+                title={primaryPage ? primaryPage.title : ''}
                 content={contentText}
                 isFirstPageOfChapter={isFirstPage}
-                onTitleChange={handleTitleChange}
-                onContentChange={handleContentChange}
+                onTitleChange={handlePrimaryTitleChange}
+                onContentChange={handlePrimaryContentChange}
                 onCursorMove={(line, column) => setCursor({ line, column })}
               />
             </div>
 
-            {splitPercent > 0 && nextPage && (
+            {secondaryWidth > 0 && secondaryPage && (
               <>
-                <div className="workspace-pane-divider" />
                 <div
-                  className="workspace-pane workspace-pane-secondary"
+                  className="workspace-pane-divider"
+                  onPointerDown={handleDividerPointerDown}
+                  onPointerMove={handleDividerPointerMove}
+                  onPointerUp={handleDividerPointerUp}
+                  onDoubleClick={handleDividerDoubleClick}
+                >
+                  <div className="divider-line" />
+                </div>
+                <div
+                  className={`workspace-pane workspace-pane-secondary ${
+                    activePageId === secondaryPage?.id ? 'is-focused-pane' : ''
+                  }`}
                   style={{
-                    width: `${splitPercent}%`,
-                    opacity: Math.min(1, splitPercent / 10),
+                    width: `${secondaryWidth}%`,
+                    opacity: Math.min(1, secondaryWidth / 10),
+                  }}
+                  onFocusCapture={() => {
+                    if (secondaryPage) setActivePageId(secondaryPage.id)
+                  }}
+                  onClickCapture={() => {
+                    if (secondaryPage) setActivePageId(secondaryPage.id)
                   }}
                 >
                   <EditorArea
-                    title={nextPage.title}
-                    content={nextPage.content}
+                    title={secondaryPage.title}
+                    content={secondaryPage.content}
                     isFirstPageOfChapter={false}
-                    onTitleChange={handleNextTitleChange}
-                    onContentChange={handleNextContentChange}
+                    onTitleChange={handleSecondaryTitleChange}
+                    onContentChange={handleSecondaryContentChange}
                   />
                 </div>
               </>
