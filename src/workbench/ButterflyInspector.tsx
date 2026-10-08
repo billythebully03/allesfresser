@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChapterItem, PageItem, SelectionNote } from '@/entities/document/types'
+import { ChapterItem, PageItem, PageStatus, SelectionNote } from '@/entities/document/types'
 
 export interface TextSelectionInfo {
   text: string
@@ -16,9 +16,46 @@ interface ButterflyInspectorProps {
   selectionInfo: TextSelectionInfo | null
   onUpdateChapterDescription: (chapterId: string, description: string) => void
   onUpdatePageNote: (pageId: string, note: string) => void
-  onUpdatePageStatus: (pageId: string, status: 'draft' | 'in_progress' | 'done') => void
+  onUpdatePageStatus: (pageId: string, status: PageStatus) => void
   onAddSelectionNote: (pageId: string, text: string, note: string) => void
   onClearSelection: () => void
+}
+
+function RollerValue({
+  value,
+  className = '',
+}: {
+  value: string | number
+  className?: string
+}) {
+  const [display, setDisplay] = useState<{
+    current: string | number
+    prev: string | number | null
+  }>({
+    current: value,
+    prev: null,
+  })
+
+  useEffect(() => {
+    if (value !== display.current) {
+      setDisplay({ prev: display.current, current: value })
+      const timer = setTimeout(() => {
+        setDisplay({ prev: null, current: value })
+      }, 260)
+      return () => clearTimeout(timer)
+    }
+  }, [value, display.current])
+
+  return (
+    <span className={`roller-container ${className}`}>
+      {display.prev !== null && (
+        <span className="roller-item is-prev">{display.prev}</span>
+      )}
+      <span className={`roller-item ${display.prev !== null ? 'is-new' : 'is-enter'}`}>
+        {display.current}
+      </span>
+    </span>
+  )
 }
 
 export function ButterflyInspector({
@@ -80,12 +117,12 @@ export function ButterflyInspector({
     setTimeout(() => {
       setFallingCard(null)
       setShowToast(true)
-    }, 650)
+    }, 620)
   }
 
   useEffect(() => {
     if (showToast) {
-      const timer = setTimeout(() => setShowToast(false), 5500)
+      const timer = setTimeout(() => setShowToast(false), 5000)
       return () => clearTimeout(timer)
     }
   }, [showToast])
@@ -100,6 +137,13 @@ export function ButterflyInspector({
 
   const notesList = activePage?.selectionNotes || []
 
+  const getStatusLabel = (st?: PageStatus) => {
+    if (st === 'done') return 'Завершено'
+    if (st === 'in_progress') return 'В работе'
+    if (st === 'draft') return 'Черновик'
+    return 'Без статуса'
+  }
+
   return (
     <>
       {isStackHovered && notesList.length > 1 && (
@@ -111,7 +155,26 @@ export function ButterflyInspector({
 
       <aside className={`butterfly-panel ${isOpen ? 'is-open' : ''}`}>
         <div className="butterfly-header">
-          <span className="butterfly-brand">Баттерфляй</span>
+          <div className="butterfly-header-row">
+            <svg
+              className="butterfly-header-icon"
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 4v16" />
+              <path d="M12 4c1.8-2 5.5-2 7.5 0 2.2 2.2 2.2 6.5 0 8.7-1.5 1.5-4.5 2.3-7.5 2.3" />
+              <path d="M12 4c-1.8-2-5.5-2-7.5 0-2.2 2.2-2.2 6.5 0 8.7 1.5 1.5 4.5 2.3 7.5 2.3" />
+              <path d="M12 15c2.5 0 5 1 6 3 1.2 2.3 0 4.5-2.5 4.5-3 0-3.5-5-3.5-7.5" />
+              <path d="M12 15c-2.5 0-5 1-6 3-1.2 2.3 0 4.5 2.5 4.5 3 0 3.5-5 3.5-7.5" />
+            </svg>
+            <span className="butterfly-brand">Баттерфляй</span>
+          </div>
           <p className="butterfly-intro">
             Созданный специально для упрощения работы, Баттерфляй выполняет роль инспектора вашего проекта
           </p>
@@ -124,15 +187,11 @@ export function ButterflyInspector({
 
               <div className="butterfly-stat-grid">
                 <div className="butterfly-stat-card">
-                  <span className="butterfly-stat-value is-sliding-in">
-                    {selectionInfo.wordCount}
-                  </span>
+                  <RollerValue value={selectionInfo.wordCount} className="butterfly-stat-value" />
                   <span className="butterfly-stat-label">Слов</span>
                 </div>
                 <div className="butterfly-stat-card">
-                  <span className="butterfly-stat-value is-sliding-in">
-                    {selectionInfo.charCount}
-                  </span>
+                  <RollerValue value={selectionInfo.charCount} className="butterfly-stat-value" />
                   <span className="butterfly-stat-label">Символов</span>
                 </div>
               </div>
@@ -197,7 +256,7 @@ export function ButterflyInspector({
 
               <div className="butterfly-stat-grid">
                 <div className="butterfly-stat-card">
-                  <span className="butterfly-stat-value is-sliding-in">{pageWords}</span>
+                  <RollerValue value={pageWords} className="butterfly-stat-value" />
                   <span className="butterfly-stat-label">Слов</span>
                 </div>
                 <div
@@ -206,16 +265,15 @@ export function ButterflyInspector({
                       ? 'is-done'
                       : activePage.status === 'in_progress'
                       ? 'is-progress'
-                      : 'is-draft'
+                      : activePage.status === 'draft'
+                      ? 'is-draft'
+                      : 'is-none'
                   }`}
                 >
-                  <span className="butterfly-stat-value is-sliding-in">
-                    {activePage.status === 'done'
-                      ? 'Завершено'
-                      : activePage.status === 'in_progress'
-                      ? 'В работе'
-                      : 'Черновик'}
-                  </span>
+                  <RollerValue
+                    value={getStatusLabel(activePage.status)}
+                    className="butterfly-stat-value"
+                  />
                   <span className="butterfly-stat-label">Статус</span>
                 </div>
               </div>
@@ -228,16 +286,19 @@ export function ButterflyInspector({
                       ? 'is-done'
                       : activePage.status === 'in_progress'
                       ? 'is-progress'
-                      : 'is-draft'
+                      : activePage.status === 'draft'
+                      ? 'is-draft'
+                      : 'is-none'
                   }`}
-                  value={activePage.status || 'draft'}
+                  value={activePage.status || 'none'}
                   onChange={(e) =>
                     onUpdatePageStatus(
                       activePage.id,
-                      e.target.value as 'draft' | 'in_progress' | 'done',
+                      e.target.value as PageStatus,
                     )
                   }
                 >
+                  <option value="none">Без статуса</option>
                   <option value="draft">Черновик</option>
                   <option value="in_progress">В работе</option>
                   <option value="done">Завершено</option>
@@ -280,19 +341,27 @@ export function ButterflyInspector({
                       onMouseLeave={() => setIsStackHovered(false)}
                     >
                       <div className="butterfly-stack-fan">
-                        {notesList.map((sn, idx) => (
-                          <div
-                            key={sn.id}
-                            className="butterfly-quote-card butterfly-stack-card"
-                            style={{
-                              '--card-index': idx,
-                              '--total-cards': notesList.length,
-                            } as any}
-                          >
-                            <div className="butterfly-quote-snippet">«{sn.text}»</div>
-                            <div className="butterfly-quote-note-text">{sn.note}</div>
-                          </div>
-                        ))}
+                        {notesList.map((sn, idx) => {
+                          let translateY = idx * 3
+                          if (isStackHovered) {
+                            const step = Math.ceil(idx / 2)
+                            const dir = idx === 0 ? 0 : idx % 2 === 1 ? -1 : 1
+                            translateY = dir * step * 48
+                          }
+                          return (
+                            <div
+                              key={sn.id}
+                              className="butterfly-quote-card butterfly-stack-card"
+                              style={{
+                                transform: `translate3d(0, ${translateY}px, 0)`,
+                                zIndex: isStackHovered ? 60 - idx : 20 - idx,
+                              }}
+                            >
+                              <div className="butterfly-quote-snippet">«{sn.text}»</div>
+                              <div className="butterfly-quote-note-text">{sn.note}</div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
@@ -307,15 +376,11 @@ export function ButterflyInspector({
 
               <div className="butterfly-stat-grid">
                 <div className="butterfly-stat-card">
-                  <span className="butterfly-stat-value is-sliding-in">
-                    {activeChapter.pages.length}
-                  </span>
+                  <RollerValue value={activeChapter.pages.length} className="butterfly-stat-value" />
                   <span className="butterfly-stat-label">Страниц</span>
                 </div>
                 <div className="butterfly-stat-card">
-                  <span className="butterfly-stat-value is-sliding-in">
-                    {chapterTotalWords}
-                  </span>
+                  <RollerValue value={chapterTotalWords} className="butterfly-stat-value" />
                   <span className="butterfly-stat-label">Слов всего</span>
                 </div>
               </div>
@@ -342,20 +407,20 @@ export function ButterflyInspector({
             <div className="butterfly-empty-guide">
               <svg
                 className="butterfly-empty-icon"
-                width="40"
-                height="40"
+                width="36"
+                height="36"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.2"
+                strokeWidth="1.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M12 3v18" />
-                <path d="M12 7c-2-3-7-3-9 0v11c2-3 7-3 9 0" />
-                <path d="M12 7c2-3 7-3 9 0v11c-2-3-7-3-9 0" />
-                <path d="M6 10a4 4 0 0 1 4 4" />
-                <path d="M18 10a4 4 0 0 0-4 4" />
+                <path d="M12 4v16" />
+                <path d="M12 4c1.8-2 5.5-2 7.5 0 2.2 2.2 2.2 6.5 0 8.7-1.5 1.5-4.5 2.3-7.5 2.3" />
+                <path d="M12 4c-1.8-2-5.5-2-7.5 0-2.2 2.2-2.2 6.5 0 8.7 1.5 1.5 4.5 2.3 7.5 2.3" />
+                <path d="M12 15c2.5 0 5 1 6 3 1.2 2.3 0 4.5-2.5 4.5-3 0-3.5-5-3.5-7.5" />
+                <path d="M12 15c-2.5 0-5 1-6 3-1.2 2.3 0 4.5 2.5 4.5 3 0 3.5-5 3.5-7.5" />
               </svg>
               <p className="butterfly-empty-text">
                 Выделите главу, страницу или фрагмент текста, чтобы активировать Баттерфлай
@@ -375,10 +440,10 @@ export function ButterflyInspector({
           <div className="butterfly-toast-banner">
             <svg
               className="butterfly-toast-icon"
-              width="15"
-              height="15"
+              width="14"
+              height="14"
               viewBox="0 0 16 16"
-              fill="currentColor"
+              fill="#ffffff"
             >
               <path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13a.5.5 0 0 1 0 1 .5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1 0-1 .5.5 0 0 1 0-1 .5.5 0 0 1-.46-.302l-.761-1.77a2 2 0 0 0-.453-.618A5.98 5.98 0 0 1 2 6m6-5a5 5 0 0 0-3.479 8.592c.263.254.514.564.676.941L5.83 12h4.342l.632-1.467c.162-.377.413-.687.676-.941A5 5 0 0 0 8 1" />
             </svg>
