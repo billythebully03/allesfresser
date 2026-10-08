@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, PointerEvent } from 'react'
-import { ChapterItem, PageItem, TrashItem } from '@/entities/document/types'
+import { ChapterItem, PageItem, PageStatus, TrashItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { SplitCornerHandle } from './SplitCornerHandle'
 import { Sidebar } from './Sidebar'
@@ -624,7 +624,7 @@ export function WorkbenchLayout() {
 
   const handleUpdatePageStatus = (
     pageId: string,
-    status: 'draft' | 'in_progress' | 'done',
+    status: PageStatus,
   ) => {
     updatePage(pageId, { status })
   }
@@ -665,6 +665,15 @@ export function WorkbenchLayout() {
     : 0
 
   const secondaryWidth = 100 - leftPercent
+
+  let dashedPageIdInSidebar: string | null = null
+  if (isSplit) {
+    if (activeCursorPageId === primaryPage?.id) {
+      dashedPageIdInSidebar = effectiveSecondaryPage.id
+    } else {
+      dashedPageIdInSidebar = primaryPage?.id || null
+    }
+  }
 
   return (
     <div
@@ -748,7 +757,7 @@ export function WorkbenchLayout() {
         width={sidebarWidth}
         chapters={chapters}
         activePageId={activeCursorPageId}
-        secondaryPageId={isSplit ? (secondaryPage?.id || secondaryDraft?.id) : null}
+        secondaryPageId={dashedPageIdInSidebar}
         isSplit={isSplit}
         onToggle={() => setIsSidebarOpen(false)}
         onWidthChange={handleSidebarWidthChange}
@@ -766,152 +775,186 @@ export function WorkbenchLayout() {
       />
 
       <div className={`workspace-outer ${isSidebarOpen ? '' : 'is-full'}`}>
-        {!isSidebarOpen && (
-          <div className="chapter-tabs-header">
-            <div className="sidebar-open-anchor-static">
-              <Tooltip
-                label="Показать меню"
-                shortcut={{ mac: '⌘B', win: 'Ctrl+B' }}
-              >
-                <button
-                  className="sidebar-open-btn"
-                  onClick={() => setIsSidebarOpen(true)}
-                  aria-label="Показать меню"
-                >
-                  <svg
-                    className="icon-default"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                  >
-                    <path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z" />
-                    <path d="M3 4a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
-                  </svg>
-                  <svg
-                    className="icon-hover"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                  >
-                    <path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z" />
-                    <path d="M11 4a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1z" />
-                  </svg>
-                </button>
-              </Tooltip>
-            </div>
-
-            <div className="chapter-tabs-list">
-              {chapters.map((ch, idx) => {
-                const isChapterActive = ch.id === primaryChapter?.id
-                const isDropdownOpen = openDropdownChapterId === ch.id
-
-                return (
-                  <div
-                    key={ch.id}
-                    className="chapter-tab-group"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', String(idx))
-                      draggedTabIdxRef.current = idx
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      if (
-                        draggedTabIdxRef.current !== null &&
-                        draggedTabIdxRef.current !== idx
-                      ) {
-                        handleMoveChapter(draggedTabIdxRef.current, idx)
-                        draggedTabIdxRef.current = idx
-                      }
-                    }}
-                    onDragEnd={() => {
-                      draggedTabIdxRef.current = null
-                    }}
+        <div className="canvas-top-strip">
+          <div className="canvas-top-left">
+            {!isSidebarOpen && (
+              <div className="chapter-tabs-header">
+                <div className="sidebar-open-anchor-static">
+                  <Tooltip
+                    label="Показать меню"
+                    shortcut={{ mac: '⌘B', win: 'Ctrl+B' }}
                   >
                     <button
-                      className={`chapter-tab ${isChapterActive ? 'is-active' : ''}`}
-                      style={{ animationDelay: `${idx * 28}ms` }}
-                      onClick={() => {
-                        if (ch.pages[0]) {
-                          setSecondaryDraft(null)
-                          setViewBasePageId(ch.pages[0].id)
-                          setActiveCursorPageId(ch.pages[0].id)
-                        }
-                      }}
+                      className="sidebar-open-btn"
+                      onClick={() => setIsSidebarOpen(true)}
+                      aria-label="Показать меню"
                     >
-                      <span className="chapter-tab-title">{ch.title || `Глава ${idx + 1}`}</span>
-                    </button>
-
-                    <button
-                      className={`chapter-tab-pages-trigger ${isDropdownOpen ? 'is-open' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setOpenDropdownChapterId(isDropdownOpen ? null : ch.id)
-                      }}
-                    >
-                      <span>Страницы</span>
                       <svg
-                        className={`chapter-tab-trigger-chevron ${isDropdownOpen ? 'is-expanded' : ''}`}
-                        width="10"
-                        height="10"
+                        className="icon-default"
+                        width="16"
+                        height="16"
                         viewBox="0 0 16 16"
                         fill="currentColor"
                       >
-                        <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708" />
+                        <path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z" />
+                        <path d="M11 4a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1z" />
+                      </svg>
+                      <svg
+                        className="icon-hover"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
+                        <path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z" />
+                        <path d="M3 4a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
                       </svg>
                     </button>
+                  </Tooltip>
+                </div>
 
-                    {isDropdownOpen && (
-                      <div className="chapter-tab-pages-dropdown">
-                        <div className="chapter-tab-pages-scroll">
-                          {ch.pages.map((p, pIdx) => {
-                            const isPageActive = p.id === activeCursorPageId
-                            return (
-                              <div
-                                key={p.id}
-                                className={`chapter-dropdown-page-row ${
-                                  isPageActive ? 'is-active-page' : ''
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (isSplit) {
-                                    if (secondaryPage && p.id === secondaryPage.id) {
-                                      setActiveCursorPageId(secondaryPage.id)
+                <div className="chapter-tabs-list">
+                  {chapters.map((ch, idx) => {
+                    const isChapterActive = ch.id === primaryChapter?.id
+                    const isDropdownOpen = openDropdownChapterId === ch.id
+
+                    return (
+                      <div
+                        key={ch.id}
+                        className="chapter-tab-group"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', String(idx))
+                          draggedTabIdxRef.current = idx
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          if (
+                            draggedTabIdxRef.current !== null &&
+                            draggedTabIdxRef.current !== idx
+                          ) {
+                            handleMoveChapter(draggedTabIdxRef.current, idx)
+                            draggedTabIdxRef.current = idx
+                          }
+                        }}
+                        onDragEnd={() => {
+                          draggedTabIdxRef.current = null
+                        }}
+                      >
+                        <button
+                          className={`chapter-tab ${isChapterActive ? 'is-active' : ''}`}
+                          style={{ animationDelay: `${idx * 28}ms` }}
+                          onClick={() => {
+                            if (ch.pages[0]) {
+                              setSecondaryDraft(null)
+                              setViewBasePageId(ch.pages[0].id)
+                              setActiveCursorPageId(ch.pages[0].id)
+                            }
+                          }}
+                        >
+                          <span className="chapter-tab-title">{ch.title || `Глава ${idx + 1}`}</span>
+                        </button>
+
+                        <button
+                          className={`chapter-tab-pages-trigger ${isDropdownOpen ? 'is-open' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenDropdownChapterId(isDropdownOpen ? null : ch.id)
+                          }}
+                        >
+                          <span>Страницы</span>
+                          <svg
+                            className={`chapter-tab-trigger-chevron ${isDropdownOpen ? 'is-expanded' : ''}`}
+                            width="10"
+                            height="10"
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
+                          >
+                            <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708" />
+                          </svg>
+                        </button>
+
+                        {isDropdownOpen && (
+                          <div className="chapter-tab-pages-dropdown">
+                            <div className="chapter-tab-pages-scroll">
+                              {ch.pages.map((p, pIdx) => {
+                                const isPageActive = p.id === activeCursorPageId
+                                return (
+                                  <div
+                                    key={p.id}
+                                    className={`chapter-dropdown-page-row ${
+                                      isPageActive ? 'is-active-page' : ''
+                                    }`}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (isSplit) {
+                                        if (secondaryPage && p.id === secondaryPage.id) {
+                                          setActiveCursorPageId(secondaryPage.id)
+                                          setOpenDropdownChapterId(null)
+                                          return
+                                        }
+                                        if (primaryPage && p.id === primaryPage.id) {
+                                          setActiveCursorPageId(primaryPage.id)
+                                          setOpenDropdownChapterId(null)
+                                          return
+                                        }
+                                      }
+                                      setSecondaryDraft(null)
+                                      setViewBasePageId(p.id)
+                                      setActiveCursorPageId(p.id)
                                       setOpenDropdownChapterId(null)
-                                      return
-                                    }
-                                    if (primaryPage && p.id === primaryPage.id) {
-                                      setActiveCursorPageId(primaryPage.id)
-                                      setOpenDropdownChapterId(null)
-                                      return
-                                    }
-                                  }
-                                  setSecondaryDraft(null)
-                                  setViewBasePageId(p.id)
-                                  setActiveCursorPageId(p.id)
-                                  setOpenDropdownChapterId(null)
-                                }}
-                              >
-                                <span className="chapter-dropdown-page-index">
-                                  {pIdx + 1}
-                                </span>
-                                <span className="chapter-dropdown-page-title">
-                                  {p.title || `Страница ${pIdx + 1}`}
-                                </span>
-                              </div>
-                            )
-                          })}
-                        </div>
+                                    }}
+                                  >
+                                    <span className="chapter-dropdown-page-index">
+                                      {pIdx + 1}
+                                    </span>
+                                    <span className="chapter-dropdown-page-title">
+                                      {p.title || `Страница ${pIdx + 1}`}
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          <div className="canvas-top-right">
+            <Tooltip
+              label={isInspectorOpen ? 'Скрыть Баттерфлай' : 'Открыть Баттерфлай'}
+              shortcut={{ mac: '⌥⌘B', win: 'Ctrl+Alt+B' }}
+            >
+              <button
+                className={`butterfly-top-toggle-btn ${isInspectorOpen ? 'is-active' : ''}`}
+                onClick={() => setIsInspectorOpen((prev) => !prev)}
+                aria-label="Баттерфлай"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 4v16" />
+                  <path d="M12 4c1.8-2 5.5-2 7.5 0 2.2 2.2 2.2 6.5 0 8.7-1.5 1.5-4.5 2.3-7.5 2.3" />
+                  <path d="M12 4c-1.8-2-5.5-2-7.5 0-2.2 2.2-2.2 6.5 0 8.7 1.5 1.5 4.5 2.3 7.5 2.3" />
+                  <path d="M12 15c2.5 0 5 1 6 3 1.2 2.3 0 4.5-2.5 4.5-3 0-3.5-5-3.5-7.5" />
+                  <path d="M12 15c-2.5 0-5 1-6 3-1.2 2.3 0 4.5 2.5 4.5 3 0 3.5-5 3.5-7.5" />
+                </svg>
+              </button>
+            </Tooltip>
+          </div>
+        </div>
 
         <main ref={islandRef} className="workspace-island">
           <SplitCornerHandle
