@@ -6,7 +6,7 @@ interface EditorAreaProps {
   isFirstPageOfChapter: boolean
   onTitleChange: (value: string) => void
   onContentChange: (value: string) => void
-  onCursorMove: (line: number, column: number) => void
+  onCursorMove?: (line: number, column: number) => void
 }
 
 export function EditorArea({
@@ -22,6 +22,7 @@ export function EditorArea({
   const updateCursorPosition = (
     e: SyntheticEvent<HTMLTextAreaElement, Event>,
   ) => {
+    if (!onCursorMove) return
     const target = e.currentTarget
     const cursorIndex = target.selectionStart ?? 0
     const textBeforeCursor = target.value.slice(0, cursorIndex)
