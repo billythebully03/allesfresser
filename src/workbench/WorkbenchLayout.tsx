@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, PointerEvent } from 'react'
-import { ChapterItem, PageItem } from '@/entities/document/types'
+import { ChapterItem, PageItem, TrashItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { SplitCornerHandle } from './SplitCornerHandle'
+import { TrashButton } from './TrashButton'
+import { TrashModal } from './TrashModal'
 import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
 import { StatusBar } from './StatusBar'
@@ -32,6 +34,8 @@ export function WorkbenchLayout() {
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
   const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const [trashItems, setTrashItems] = useState<TrashItem[]>([])
+  const [isTrashOpen, setIsTrashOpen] = useState(false)
   const createdPageIdForSplitRef = useRef<string | null>(null)
   const isDraggingDividerRef = useRef(false)
   const islandRef = useRef<HTMLElement>(null)
@@ -330,6 +334,18 @@ export function WorkbenchLayout() {
   }
 
   const handleDeleteChapter = (chapterId: string) => {
+    const chapterToDelete = chapters.find((ch) => ch.id === chapterId)
+    if (chapterToDelete) {
+      const trashRecord: TrashItem = {
+        id: `trash-${Date.now()}`,
+        type: 'chapter',
+        title: chapterToDelete.title || 'Безымянная глава',
+        deletedAt: Date.now(),
+        data: chapterToDelete,
+      }
+      setTrashItems((prev) => [trashRecord, ...prev])
+    }
+
     setChapters((prev) => {
       const remaining = prev.filter((ch) => ch.id !== chapterId)
       if (remaining.length === 0) {
@@ -386,6 +402,21 @@ export function WorkbenchLayout() {
   }
 
   const handleDeletePage = (chapterId: string, pageId: string) => {
+    const parentChapter = chapters.find((ch) => ch.id === chapterId)
+    const pageToDelete = parentChapter?.pages.find((p) => p.id === pageId)
+
+    if (pageToDelete) {
+      const trashRecord: TrashItem = {
+        id: `trash-${Date.now()}`,
+        type: 'page',
+        title: pageToDelete.title || 'Безымянная страница',
+        deletedAt: Date.now(),
+        data: pageToDelete,
+        parentChapterId: chapterId,
+      }
+      setTrashItems((prev) => [trashRecord, ...prev])
+    }
+
     setChapters((prev) =>
       prev.map((ch) => {
         if (ch.id !== chapterId) return ch
@@ -408,6 +439,35 @@ export function WorkbenchLayout() {
         return { ...ch, pages: remainingPages }
       }),
     )
+  }
+
+  const handleRestoreFromTrash = (item: TrashItem) => {
+    if (item.type === 'chapter') {
+      const chapterData = item.data as ChapterItem
+      setChapters((prev) => [...prev, chapterData])
+      if (chapterData.pages[0]) {
+        setActivePageId(chapterData.pages[0].id)
+      }
+    } else {
+      const pageData = item.data as PageItem
+      setChapters((prev) => {
+        const targetChapter = prev.find((ch) => ch.id === item.parentChapterId) ?? prev[0]
+        if (!targetChapter) return prev
+
+        return prev.map((ch) =>
+          ch.id === targetChapter.id
+            ? { ...ch, pages: [...ch.pages, pageData] }
+            : ch,
+        )
+      })
+      setActivePageId(pageData.id)
+    }
+
+    setTrashItems((prev) => prev.filter((i) => i.id !== item.id))
+  }
+
+  const handleClearTrash = () => {
+    setTrashItems([])
   }
 
   const contentText = primaryPage ? primaryPage.content : ''
@@ -485,6 +545,19 @@ export function WorkbenchLayout() {
             onDragProgress={handleCornerDragProgress}
             onSnap={handleCornerSnap}
             onInstantToggle={handleInstantToggle}
+          />
+
+          <TrashButton
+            isEmpty={trashItems.length === 0}
+            onClick={() => setIsTrashOpen(true)}
+          />
+
+          <TrashModal
+            isOpen={isTrashOpen}
+            items={trashItems}
+            onClose={() => setIsTrashOpen(false)}
+            onRestore={handleRestoreFromTrash}
+            onClear={handleClearTrash}
           />
 
           <div
