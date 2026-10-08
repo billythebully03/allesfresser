@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { DocumentItem } from '@/entities/document/types'
+import { TopBar } from './TopBar'
 import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
 import { StatusBar } from './StatusBar'
 
 const INITIAL_DOCS: DocumentItem[] = [
-  { id: '1', title: 'Глава 1. Начало', content: '', updatedAt: Date.now() },
-  { id: '2', title: 'Глава 2. Развитие', content: '', updatedAt: Date.now() },
+  { id: '1', title: 'Глава первая', content: '', updatedAt: Date.now() },
+  { id: '2', title: 'Глава вторая', content: '', updatedAt: Date.now() },
+  { id: '3', title: 'Черновик сцены', content: '', updatedAt: Date.now() },
 ]
 
 export function WorkbenchLayout() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [documents, setDocuments] = useState<DocumentItem[]>(INITIAL_DOCS)
   const [activeId, setActiveId] = useState<string>('1')
 
@@ -30,17 +33,26 @@ export function WorkbenchLayout() {
     : 0
 
   return (
-    <div className="workbench">
-      <Sidebar
-        documents={documents}
-        activeId={activeId}
-        onSelect={setActiveId}
+    <div className="workbench-root">
+      <TopBar
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
       />
-      <EditorArea
-        content={activeDoc.content}
-        onChange={handleContentChange}
-      />
-      <StatusBar wordCount={wordCount} />
+      <div className="workbench-body">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          documents={documents}
+          activeId={activeId}
+          onSelect={setActiveId}
+        />
+        <main className="workspace-surface">
+          <EditorArea
+            content={activeDoc.content}
+            onChange={handleContentChange}
+          />
+          <StatusBar wordCount={wordCount} />
+        </main>
+      </div>
     </div>
   )
 }
