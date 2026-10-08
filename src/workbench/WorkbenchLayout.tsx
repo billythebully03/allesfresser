@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, PointerEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { ChapterItem, PageItem, PageStatus, TrashItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { SplitCornerHandle } from './SplitCornerHandle'
@@ -33,6 +34,12 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
   },
 ]
 
+interface DropdownMenuState {
+  chapterId: string
+  top: number
+  left: number
+}
+
 export function WorkbenchLayout() {
   const [sidebarWidth, setSidebarWidth] = useState(250)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
@@ -50,7 +57,7 @@ export function WorkbenchLayout() {
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
   const [selectionInfo, setSelectionInfo] = useState<TextSelectionInfo | null>(null)
-  const [openDropdownChapterId, setOpenDropdownChapterId] = useState<string | null>(null)
+  const [dropdownMenu, setDropdownMenu] = useState<DropdownMenuState | null>(null)
 
   const isDraggingDividerRef = useRef(false)
   const islandRef = useRef<HTMLElement>(null)
@@ -71,8 +78,12 @@ export function WorkbenchLayout() {
     }
 
     const handleClickOutside = (e: globalThis.MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('.chapter-tab-group')) {
-        setOpenDropdownChapterId(null)
+      const target = e.target as HTMLElement
+      if (
+        !target.closest('.chapter-tab-pages-trigger') &&
+        !target.closest('.chapter-portal-pages-dropdown')
+      ) {
+        setDropdownMenu(null)
       }
     }
 
@@ -675,6 +686,10 @@ export function WorkbenchLayout() {
     }
   }
 
+  const activeDropdownChapter = dropdownMenu
+    ? chapters.find((ch) => ch.id === dropdownMenu.chapterId)
+    : null
+
   return (
     <div
       className={`workbench-root ${isRailOpen ? 'has-rail' : ''} ${
@@ -816,7 +831,6 @@ export function WorkbenchLayout() {
                 <div className="chapter-tabs-list">
                   {chapters.map((ch, idx) => {
                     const isChapterActive = ch.id === primaryChapter?.id
-                    const isDropdownOpen = openDropdownChapterId === ch.id
 
                     return (
                       <div
@@ -856,15 +870,28 @@ export function WorkbenchLayout() {
                         </button>
 
                         <button
-                          className={`chapter-tab-pages-trigger ${isDropdownOpen ? 'is-open' : ''}`}
+                          className={`chapter-tab-pages-trigger ${
+                            dropdownMenu?.chapterId === ch.id ? 'is-open' : ''
+                          }`}
                           onClick={(e) => {
                             e.stopPropagation()
-                            setOpenDropdownChapterId(isDropdownOpen ? null : ch.id)
+                            if (dropdownMenu?.chapterId === ch.id) {
+                              setDropdownMenu(null)
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              setDropdownMenu({
+                                chapterId: ch.id,
+                                top: rect.bottom + 4,
+                                left: Math.max(8, rect.left - 40),
+                              })
+                            }
                           }}
                         >
                           <span>Страницы</span>
                           <svg
-                            className={`chapter-tab-trigger-chevron ${isDropdownOpen ? 'is-expanded' : ''}`}
+                            className={`chapter-tab-trigger-chevron ${
+                              dropdownMenu?.chapterId === ch.id ? 'is-expanded' : ''
+                            }`}
                             width="10"
                             height="10"
                             viewBox="0 0 16 16"
@@ -873,50 +900,6 @@ export function WorkbenchLayout() {
                             <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708" />
                           </svg>
                         </button>
-
-                        {isDropdownOpen && (
-                          <div className="chapter-tab-pages-dropdown">
-                            <div className="chapter-tab-pages-scroll">
-                              {ch.pages.map((p, pIdx) => {
-                                const isPageActive = p.id === activeCursorPageId
-                                return (
-                                  <div
-                                    key={p.id}
-                                    className={`chapter-dropdown-page-row ${
-                                      isPageActive ? 'is-active-page' : ''
-                                    }`}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      if (isSplit) {
-                                        if (secondaryPage && p.id === secondaryPage.id) {
-                                          setActiveCursorPageId(secondaryPage.id)
-                                          setOpenDropdownChapterId(null)
-                                          return
-                                        }
-                                        if (primaryPage && p.id === primaryPage.id) {
-                                          setActiveCursorPageId(primaryPage.id)
-                                          setOpenDropdownChapterId(null)
-                                          return
-                                        }
-                                      }
-                                      setSecondaryDraft(null)
-                                      setViewBasePageId(p.id)
-                                      setActiveCursorPageId(p.id)
-                                      setOpenDropdownChapterId(null)
-                                    }}
-                                  >
-                                    <span className="chapter-dropdown-page-index">
-                                      {pIdx + 1}
-                                    </span>
-                                    <span className="chapter-dropdown-page-title">
-                                      {p.title || `Страница ${pIdx + 1}`}
-                                    </span>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )
                   })}
@@ -1054,6 +1037,58 @@ export function WorkbenchLayout() {
         onAddSelectionNote={handleAddSelectionNote}
         onClearSelection={handleClearSelection}
       />
+
+      {dropdownMenu && activeDropdownChapter && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="chapter-portal-pages-dropdown"
+            style={{
+              top: `${dropdownMenu.top}px`,
+              left: `${dropdownMenu.left}px`,
+            }}
+          >
+            <div className="chapter-portal-pages-scroll">
+              {activeDropdownChapter.pages.map((p, pIdx) => {
+                const isPageActive = p.id === activeCursorPageId
+                return (
+                  <div
+                    key={p.id}
+                    className={`chapter-dropdown-page-row ${
+                      isPageActive ? 'is-active-page' : ''
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (isSplit) {
+                        if (secondaryPage && p.id === secondaryPage.id) {
+                          setActiveCursorPageId(secondaryPage.id)
+                          setDropdownMenu(null)
+                          return
+                        }
+                        if (primaryPage && p.id === primaryPage.id) {
+                          setActiveCursorPageId(primaryPage.id)
+                          setDropdownMenu(null)
+                          return
+                        }
+                      }
+                      setSecondaryDraft(null)
+                      setViewBasePageId(p.id)
+                      setActiveCursorPageId(p.id)
+                      setDropdownMenu(null)
+                    }}
+                  >
+                    <span className="chapter-dropdown-page-index">
+                      {pIdx + 1}
+                    </span>
+                    <span className="chapter-dropdown-page-title">
+                      {p.title || `Страница ${pIdx + 1}`}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
