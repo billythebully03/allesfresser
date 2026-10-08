@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChapterItem, PageItem } from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { SplitCornerHandle } from './SplitCornerHandle'
@@ -9,12 +9,13 @@ import { StatusBar } from './StatusBar'
 const INITIAL_CHAPTERS: ChapterItem[] = [
   {
     id: 'ch-1',
+    title: 'Глава 1',
     isOpen: true,
     updatedAt: Date.now(),
     pages: [
       {
         id: 'pg-1',
-        title: 'Глава 1',
+        title: 'Начало пути',
         content: 'В ту ночь шел дождь. Они встретились у моста...',
         updatedAt: Date.now(),
       },
@@ -25,9 +26,12 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
 export function WorkbenchLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isSplit, setIsSplit] = useState(false)
+  const [splitPercent, setSplitPercent] = useState(0)
+  const [isDraggingSplit, setIsDraggingSplit] = useState(false)
   const [chapters, setChapters] = useState<ChapterItem[]>(INITIAL_CHAPTERS)
   const [activePageId, setActivePageId] = useState<string>('pg-1')
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const islandRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -68,8 +72,8 @@ export function WorkbenchLayout() {
     }
   }
 
-  const handleToggleSplit = () => {
-    if (!isSplit && !nextPage && activeChapter) {
+  const ensureNextPage = () => {
+    if (!nextPage && activeChapter) {
       const newPageId = `pg-${Date.now()}`
       const newPage: PageItem = {
         id: newPageId,
@@ -85,7 +89,33 @@ export function WorkbenchLayout() {
         ),
       )
     }
-    setIsSplit((prev) => !prev)
+  }
+
+  const handleDragProgress = (deltaX: number, isDragging: boolean) => {
+    setIsDraggingSplit(isDragging)
+    ensureNextPage()
+    if (!islandRef.current) return
+    const containerWidth = islandRef.current.clientWidth
+    const halfWidth = containerWidth / 2
+
+    let targetWidthPx = isSplit ? halfWidth - deltaX : deltaX
+    targetWidthPx = Math.max(0, Math.min(halfWidth, targetWidthPx))
+    const percent = (targetWidthPx / containerWidth) * 100
+    setSplitPercent(percent)
+  }
+
+  const handleSnap = (shouldSplit: boolean) => {
+    setIsDraggingSplit(false)
+    setIsSplit(shouldSplit)
+    setSplitPercent(shouldSplit ? 50 : 0)
+  }
+
+  const handleToggleSplit = () => {
+    ensureNextPage()
+    setIsDraggingSplit(false)
+    const nextState = !isSplit
+    setIsSplit(nextState)
+    setSplitPercent(nextState ? 50 : 0)
   }
 
   const isFirstPage = activeChapter?.pages[0]?.id === activePage?.id
@@ -125,7 +155,7 @@ export function WorkbenchLayout() {
     setChapters((prev) =>
       prev.map((ch) =>
         ch.id === chapterId
-          ? { ...ch, customTitle: newTitle || undefined, updatedAt: Date.now() }
+          ? { ...ch, title: newTitle, updatedAt: Date.now() }
           : ch,
       ),
     )
@@ -167,12 +197,13 @@ export function WorkbenchLayout() {
     const newPageId = `pg-${Date.now()}`
     const newChapter: ChapterItem = {
       id: `ch-${Date.now()}`,
+      title: `Глава ${nextIndex}`,
       isOpen: true,
       updatedAt: Date.now(),
       pages: [
         {
           id: newPageId,
-          title: `Глава ${nextIndex}`,
+          title: '',
           content: '',
           updatedAt: Date.now(),
         },
@@ -206,12 +237,12 @@ export function WorkbenchLayout() {
     const duplicated: ChapterItem = {
       ...source,
       id: `ch-${Date.now()}`,
-      customTitle: source.customTitle ? `${source.customTitle} (копия)` : undefined,
+      title: `${source.title} (копия)`,
       updatedAt: Date.now(),
       pages: source.pages.map((p, idx) => ({
         ...p,
         id: `pg-${Date.now()}-${idx}`,
-        title: idx === 0 && !source.customTitle ? `${p.title} (копия)` : p.title,
+        title: p.title ? `${p.title} (копия)` : '',
         updatedAt: Date.now(),
       })),
     }
@@ -232,12 +263,13 @@ export function WorkbenchLayout() {
         const fallbackPageId = `pg-${Date.now()}`
         const fallback: ChapterItem = {
           id: `ch-${Date.now()}`,
+          title: 'Глава 1',
           isOpen: true,
           updatedAt: Date.now(),
           pages: [
             {
               id: fallbackPageId,
-              title: 'Глава 1',
+              title: '',
               content: '',
               updatedAt: Date.now(),
             },
@@ -329,7 +361,7 @@ export function WorkbenchLayout() {
         onDeletePage={handleDeletePage}
       />
       <div className={`workspace-outer ${isSidebarOpen ? '' : 'is-full'}`}>
-        <main className="workspace-island">
+        <main ref={islandRef} className="workspace-island">
           {!isSidebarOpen && (
             <div className="sidebar-open-anchor">
               <Tooltip
@@ -375,13 +407,22 @@ export function WorkbenchLayout() {
 
           <SplitCornerHandle
             isSplit={isSplit}
-            onToggleSplit={handleToggleSplit}
+            onDragProgress={handleDragProgress}
+            onSnap={handleSnap}
+            onToggle={handleToggleSplit}
           />
 
           <div
-            className={`workspace-panes-wrapper ${isSplit ? 'is-split' : ''}`}
+            className={`workspace-panes-wrapper ${
+              isDraggingSplit ? 'is-dragging' : ''
+            }`}
           >
-            <div className="workspace-pane">
+            <div
+              className="workspace-pane"
+              style={{
+                width: `${100 - splitPercent}%`,
+              }}
+            >
               <EditorArea
                 title={activePage ? activePage.title : ''}
                 content={contentText}
@@ -392,10 +433,16 @@ export function WorkbenchLayout() {
               />
             </div>
 
-            {isSplit && nextPage && (
+            {splitPercent > 0 && nextPage && (
               <>
                 <div className="workspace-pane-divider" />
-                <div className="workspace-pane">
+                <div
+                  className="workspace-pane workspace-pane-secondary"
+                  style={{
+                    width: `${splitPercent}%`,
+                    opacity: Math.min(1, splitPercent / 12),
+                  }}
+                >
                   <EditorArea
                     title={nextPage.title}
                     content={nextPage.content}
