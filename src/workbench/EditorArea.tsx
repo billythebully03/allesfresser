@@ -1,4 +1,4 @@
-import { ChangeEvent, SyntheticEvent, useRef, KeyboardEvent } from 'react'
+import { ChangeEvent, SyntheticEvent, useRef, KeyboardEvent, useEffect, useState } from 'react'
 
 interface EditorAreaProps {
   title: string
@@ -9,6 +9,10 @@ interface EditorAreaProps {
   onCursorMove?: (line: number, column: number) => void
 }
 
+const LINE_HEIGHT = 32
+const MAX_LINES = 3
+const MAX_TITLE_HEIGHT = LINE_HEIGHT * MAX_LINES
+
 export function EditorArea({
   title,
   content,
@@ -17,7 +21,51 @@ export function EditorArea({
   onContentChange,
   onCursorMove,
 }: EditorAreaProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const titleTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [isShaking, setIsShaking] = useState(false)
+
+  const triggerShake = () => {
+    if (!isShaking) {
+      setIsShaking(true)
+    }
+  }
+
+  const adjustTitleHeight = () => {
+    const el = titleTextareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const newHeight = Math.min(el.scrollHeight, MAX_TITLE_HEIGHT)
+    el.style.height = `${newHeight}px`
+  }
+
+  useEffect(() => {
+    adjustTitleHeight()
+  }, [title])
+
+  const handleTitleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      contentTextareaRef.current?.focus()
+    }
+  }
+
+  const handleTitleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    const nextVal = e.target.value
+    const el = titleTextareaRef.current
+    if (!el) return
+
+    const prevHeight = el.style.height
+    el.style.height = 'auto'
+
+    if (el.scrollHeight > MAX_TITLE_HEIGHT + 4 && nextVal.length > title.length) {
+      el.style.height = prevHeight
+      triggerShake()
+      return
+    }
+
+    onTitleChange(nextVal)
+  }
 
   const updateCursorPosition = (
     e: SyntheticEvent<HTMLTextAreaElement, Event>,
@@ -32,15 +80,6 @@ export function EditorArea({
     onCursorMove(currentLine, currentColumn)
   }
 
-  const handleTitleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      if (textareaRef.current) {
-        textareaRef.current.focus()
-      }
-    }
-  }
-
   const handleContentChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     onContentChange(e.target.value)
     updateCursorPosition(e)
@@ -49,11 +88,14 @@ export function EditorArea({
   return (
     <div className="editor-viewport">
       <div className="editor-container">
-        <input
-          className="editor-title-input"
+        <textarea
+          ref={titleTextareaRef}
+          rows={1}
+          className={`editor-title-textarea ${isShaking ? 'is-shaking' : ''}`}
           value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
+          onChange={handleTitleChange}
           onKeyDown={handleTitleKeyDown}
+          onAnimationEnd={() => setIsShaking(false)}
           placeholder={
             isFirstPageOfChapter
               ? 'Заголовок главы'
@@ -62,7 +104,7 @@ export function EditorArea({
           spellCheck={false}
         />
         <textarea
-          ref={textareaRef}
+          ref={contentTextareaRef}
           className="editor-textarea"
           value={content}
           onChange={handleContentChange}
