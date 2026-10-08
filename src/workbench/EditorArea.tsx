@@ -180,7 +180,7 @@ export function EditorArea({
           />
 
           <div className="editor-body-area">
-            <div className="editor-floating-gutter" aria-hidden="true">
+            <div className="editor-margin-gutter" aria-hidden="true">
               {visibleLines.map((lineNum) => {
                 const distance = Math.abs(lineNum - activeLine)
                 let opacity = 1
