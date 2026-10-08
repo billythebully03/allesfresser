@@ -1,8 +1,18 @@
+export interface SelectionNote {
+  id: string
+  text: string
+  note: string
+  createdAt: number
+}
+
 export interface PageItem {
   id: string
   title: string
   content: string
   updatedAt: number
+  note?: string
+  status?: 'draft' | 'in_progress' | 'done'
+  selectionNotes?: SelectionNote[]
 }
 
 export interface ChapterItem {
@@ -11,6 +21,7 @@ export interface ChapterItem {
   isOpen: boolean
   pages: PageItem[]
   updatedAt: number
+  description?: string
 }
 
 export type TrashItem =
