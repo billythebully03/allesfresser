@@ -7,7 +7,6 @@
 :root {
   --bg-app: #f2f2f4;
   --bg-workspace: #ffffff;
-  --border-subtle: #e5e5ea;
   --text-main: #1c1c1e;
   --text-muted: #8e8e93;
   --sidebar-width: 250px;
@@ -34,7 +33,6 @@ body,
   width: 100vw;
   background-color: var(--bg-app);
   overflow: hidden;
-  padding-top: 8px;
 }
 
 .sidebar {
@@ -54,7 +52,7 @@ body,
 }
 
 .sidebar-header {
-  padding: 8px 14px 12px 18px;
+  padding: 12px 14px 10px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -116,10 +114,10 @@ body,
   opacity: 1;
 }
 
-.sidebar-open-btn {
+.sidebar-open-anchor {
   position: absolute;
   top: 10px;
-  left: 12px;
+  left: 10px;
   z-index: 10;
 }
 
@@ -153,13 +151,27 @@ body,
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.workspace-surface {
-  position: relative;
+.workspace-outer {
   flex: 1;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px 8px 0;
+  gap: 6px;
+  min-width: 0;
+  transition: padding-left 0.2s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.workspace-outer.is-full {
+  padding-left: 10px;
+}
+
+.workspace-island {
+  position: relative;
+  flex: 1;
   background-color: var(--bg-workspace);
-  border-top-left-radius: 12px;
-  box-shadow: -1px -1px 0 rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -169,7 +181,7 @@ body,
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-workspace);
-  padding: 44px 56px 24px 56px;
+  padding: 44px 44px 24px 44px;
 }
 
 .editor-textarea {
@@ -194,12 +206,58 @@ body,
 }
 
 .statusbar {
-  height: 28px;
-  border-top: 1px solid var(--border-subtle);
-  background-color: var(--bg-workspace);
+  height: 22px;
+  background-color: var(--bg-app);
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  font-size: 12px;
+  justify-content: space-between;
+  padding: 0 4px;
+  font-size: 11px;
   color: var(--text-muted);
+}
+
+.statusbar-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tooltip-container {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(30, 30, 32, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+}
+
+.tooltip-label {
+  font-weight: 400;
+}
+
+.tooltip-shortcut {
+  font-family: var(--font-ios);
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: #ffffff;
 }
