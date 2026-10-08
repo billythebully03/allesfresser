@@ -43,7 +43,7 @@ body,
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 10px 0;
   gap: 12px;
   overflow: hidden;
@@ -66,15 +66,15 @@ body,
 
 .workbench-root.has-rail .tab-rail.is-visible {
   margin-left: 10px;
-  margin-right: 10px;
+  margin-right: 0;
 }
 
-.tab-rail.is-on-light {
+.tab-rail.is-sidebar-open {
   background-color: #ffffff;
 }
 
-.tab-rail.is-on-dark {
-  background-color: #ffffff;
+.tab-rail.is-sidebar-closed {
+  background-color: var(--bg-app);
 }
 
 .tab-rail-top {
@@ -473,7 +473,6 @@ body,
   display: flex;
   flex-direction: column;
   padding: 8px 10px 8px 0;
-  gap: 6px;
   min-width: 0;
   transition: padding-left 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
@@ -833,23 +832,23 @@ body,
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-workspace);
-  padding: 16px 56px 20px 48px;
+  padding: 16px 56px 20px 56px;
   margin-top: 36px;
   margin-bottom: 38px;
   scrollbar-width: thin;
 }
 
 .editor-inner-flow {
-  min-height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 100%;
 }
 
 .editor-container {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100%;
+  flex: 1;
 }
 
 .editor-title-textarea {
@@ -892,18 +891,21 @@ body,
   }
 }
 
-.editor-body-with-gutter {
+.editor-body-area {
   position: relative;
   flex: 1;
   display: flex;
+  flex-direction: column;
   width: 100%;
+  cursor: text;
 }
 
-.editor-line-gutter {
-  position: relative;
-  width: 32px;
-  flex-shrink: 0;
-  margin-right: 14px;
+.editor-floating-gutter {
+  position: absolute;
+  top: 0;
+  left: -40px;
+  width: 28px;
+  height: 100%;
   user-select: none;
   pointer-events: none;
 }
@@ -938,7 +940,6 @@ body,
 }
 
 .editor-textarea {
-  flex: 1;
   width: 100%;
   border: none;
   outline: none;
@@ -946,11 +947,13 @@ body,
   padding: 0;
   margin: 0;
   font-size: 16px;
-  line-height: 1.65;
+  line-height: 26.4px;
   font-family: var(--font-ios);
   color: #1c1c1e;
   background-color: transparent;
   user-select: text;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .editor-textarea::placeholder {
