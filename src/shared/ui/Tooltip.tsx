@@ -1,4 +1,4 @@
-import { useState, useRef, ReactNode } from 'react'
+import { useState, useRef, useLayoutEffect, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 interface TooltipProps {
@@ -12,49 +12,52 @@ interface TooltipProps {
 
 export function Tooltip({ label, shortcut, children }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const [coords, setCoords] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  })
   const triggerRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
 
   const isMac =
     typeof navigator !== 'undefined' &&
     /mac|iphone|ipad|ipod/i.test(navigator.userAgent)
 
-  const handleMouseEnter = () => {
-    if (triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setCoords({
-        top: rect.bottom + 6,
-        left: rect.left + rect.width / 2,
-      })
-      setIsVisible(true)
-    }
-  }
+  useLayoutEffect(() => {
+    if (!isVisible || !triggerRef.current || !popoverRef.current) return
 
-  const handleMouseLeave = () => {
-    setIsVisible(false)
-  }
+    const triggerRect = triggerRef.current.getBoundingClientRect()
+    const popoverRect = popoverRef.current.getBoundingClientRect()
+    const gap = 6
+    const margin = 8
+
+    let top = triggerRect.bottom + gap
+    if (top + popoverRect.height > window.innerHeight - margin) {
+      top = triggerRect.top - gap - popoverRect.height
+    }
+    if (top < margin) {
+      top = margin
+    }
+
+    let left = triggerRect.left + triggerRect.width / 2 - popoverRect.width / 2
+    if (left < margin) {
+      left = margin
+    } else if (left + popoverRect.width > window.innerWidth - margin) {
+      left = window.innerWidth - margin - popoverRect.width
+    }
+
+    popoverRef.current.style.top = `${top}px`
+    popoverRef.current.style.left = `${left}px`
+  }, [isVisible])
 
   return (
     <div
       ref={triggerRef}
       className="tooltip-container"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
     >
       {children}
       {isVisible &&
         typeof document !== 'undefined' &&
         createPortal(
-          <div
-            className="tooltip-popover"
-            style={{
-              top: `${coords.top}px`,
-              left: `${coords.left}px`,
-            }}
-          >
+          <div ref={popoverRef} className="tooltip-popover">
             <span className="tooltip-label">{label}</span>
             {shortcut && (
               <kbd className="tooltip-shortcut">
