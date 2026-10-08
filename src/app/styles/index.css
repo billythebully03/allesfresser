@@ -38,18 +38,22 @@ body,
 
 .tab-rail {
   width: 0;
-  height: 100%;
+  height: calc(100% - 16px);
+  margin: 8px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 0;
-  gap: 8px;
+  justify-content: space-between;
+  padding: 10px 0;
+  gap: 12px;
   overflow: hidden;
   opacity: 0;
   flex-shrink: 0;
+  border-radius: 10px;
   border: none;
   box-shadow: none;
   transition: width 0.22s cubic-bezier(0.2, 0, 0, 1),
+    margin 0.22s cubic-bezier(0.2, 0, 0, 1),
     background-color 0.22s cubic-bezier(0.2, 0, 0, 1),
     opacity 0.18s ease;
   z-index: 5;
@@ -60,12 +64,47 @@ body,
   opacity: 1;
 }
 
+.workbench-root.has-rail .tab-rail.is-visible {
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
 .tab-rail.is-on-light {
   background-color: #ffffff;
 }
 
 .tab-rail.is-on-dark {
-  background-color: var(--bg-app);
+  background-color: #ffffff;
+}
+
+.tab-rail-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tab-rail-brand {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.tab-rail-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tab-rail-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .tab-rail-btn {
@@ -130,7 +169,7 @@ body,
 }
 
 .sidebar-resizer {
-  width: 5px;
+  width: 6px;
   height: 100%;
   cursor: col-resize;
   flex-shrink: 0;
