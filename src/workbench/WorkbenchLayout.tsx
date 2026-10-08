@@ -651,6 +651,10 @@ export function WorkbenchLayout() {
     )
   }
 
+  const handleClearSelection = () => {
+    setSelectionInfo(null)
+  }
+
   const currentlyFocusedPage = activeCursorPageId === effectiveSecondaryPage.id
     ? effectiveSecondaryPage
     : primaryPage
@@ -744,6 +748,8 @@ export function WorkbenchLayout() {
         width={sidebarWidth}
         chapters={chapters}
         activePageId={activeCursorPageId}
+        secondaryPageId={isSplit ? (secondaryPage?.id || secondaryDraft?.id) : null}
+        isSplit={isSplit}
         onToggle={() => setIsSidebarOpen(false)}
         onWidthChange={handleSidebarWidthChange}
         onToggleChapter={handleToggleChapter}
@@ -929,10 +935,8 @@ export function WorkbenchLayout() {
           >
             <div
               className={`workspace-pane ${
-                isSplit
-                  ? activeCursorPageId === primaryPage?.id
-                    ? 'is-focused-split-active'
-                    : 'is-split-passive-dashed'
+                isSplit && activeCursorPageId === primaryPage?.id
+                  ? 'is-focused-split-active'
                   : ''
               }`}
               style={{
@@ -949,10 +953,11 @@ export function WorkbenchLayout() {
                 title={primaryPage ? primaryPage.title : ''}
                 content={primaryPage ? primaryPage.content : ''}
                 isFirstPageOfChapter={isFirstPage}
+                isInspectorOpen={isInspectorOpen}
                 onTitleChange={handlePrimaryTitleChange}
                 onContentChange={handlePrimaryContentChange}
                 onCursorMove={(line, column) => setCursor({ line, column })}
-                onSelectionChange={setSelectionInfo}
+                onSelectionChange={isInspectorOpen ? setSelectionInfo : undefined}
               />
             </div>
 
@@ -969,10 +974,8 @@ export function WorkbenchLayout() {
                 </div>
                 <div
                   className={`workspace-pane workspace-pane-secondary ${
-                    isSplit
-                      ? activeCursorPageId === effectiveSecondaryPage.id
-                        ? 'is-focused-split-active'
-                        : 'is-split-passive-dashed'
+                    isSplit && activeCursorPageId === effectiveSecondaryPage.id
+                      ? 'is-focused-split-active'
                       : ''
                   }`}
                   style={{
@@ -990,10 +993,11 @@ export function WorkbenchLayout() {
                     title={effectiveSecondaryPage.title}
                     content={effectiveSecondaryPage.content}
                     isFirstPageOfChapter={false}
+                    isInspectorOpen={isInspectorOpen}
                     onTitleChange={handleSecondaryTitleChange}
                     onContentChange={handleSecondaryContentChange}
                     onCursorMove={(line, column) => setCursor({ line, column })}
-                    onSelectionChange={setSelectionInfo}
+                    onSelectionChange={isInspectorOpen ? setSelectionInfo : undefined}
                   />
                 </div>
               </>
@@ -1012,6 +1016,7 @@ export function WorkbenchLayout() {
         onUpdatePageNote={handleUpdatePageNote}
         onUpdatePageStatus={handleUpdatePageStatus}
         onAddSelectionNote={handleAddSelectionNote}
+        onClearSelection={handleClearSelection}
       />
     </div>
   )
