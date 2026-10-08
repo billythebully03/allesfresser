@@ -1,3 +1,5 @@
+export type PageStatus = 'none' | 'draft' | 'in_progress' | 'done'
+
 export interface SelectionNote {
   id: string
   text: string
@@ -11,7 +13,7 @@ export interface PageItem {
   content: string
   updatedAt: number
   note?: string
-  status?: 'draft' | 'in_progress' | 'done'
+  status?: PageStatus
   selectionNotes?: SelectionNote[]
 }
 
