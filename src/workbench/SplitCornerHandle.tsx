@@ -1,57 +1,73 @@
-import { useState, useRef, MouseEvent } from 'react'
+import { useState, useRef, PointerEvent } from 'react'
 import { Tooltip } from '@/shared/ui/Tooltip'
 
 interface SplitCornerHandleProps {
   isSplit: boolean
-  onToggleSplit: () => void
+  onDragProgress: (widthPx: number, isDragging: boolean) => void
+  onSnap: (shouldSplit: boolean) => void
+  onToggle: () => void
 }
 
 export function SplitCornerHandle({
   isSplit,
-  onToggleSplit,
+  onDragProgress,
+  onSnap,
+  onToggle,
 }: SplitCornerHandleProps) {
-  const [isDragging, setIsDragging] = useState(false)
-  const startXRef = useRef<number>(0)
+  const [isPointerDown, setIsPointerDown] = useState(false)
+  const startXRef = useRef(0)
+  const hasMovedRef = useRef(false)
 
-  const handleMouseDown = (e: MouseEvent) => {
+  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setIsPointerDown(true)
     startXRef.current = e.clientX
-    setIsDragging(true)
+    hasMovedRef.current = false
+    onDragProgress(0, true)
+  }
 
-    const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
-      const delta = startXRef.current - moveEvent.clientX
-      if (!isSplit && delta > 30) {
-        onToggleSplit()
-        cleanup()
-      } else if (isSplit && delta < -30) {
-        onToggleSplit()
-        cleanup()
-      }
+  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!isPointerDown) return
+    const deltaX = startXRef.current - e.clientX
+    if (Math.abs(deltaX) > 4) {
+      hasMovedRef.current = true
+    }
+    onDragProgress(deltaX, true)
+  }
+
+  const handlePointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    if (!isPointerDown) return
+    setIsPointerDown(false)
+    e.currentTarget.releasePointerCapture(e.pointerId)
+
+    if (!hasMovedRef.current) {
+      onToggle()
+      return
     }
 
-    const cleanup = () => {
-      setIsDragging(false)
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', cleanup)
+    const deltaX = startXRef.current - e.clientX
+    if (!isSplit) {
+      onSnap(deltaX > 70)
+    } else {
+      onSnap(deltaX > -70)
     }
-
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', cleanup)
   }
 
   return (
     <Tooltip
       label={
         isSplit
-          ? 'Объединить в одну страницу'
-          : 'Потяните влево для разделения на две страницы'
+          ? 'Потяните вправо или нажмите для закрытия'
+          : 'Потяните влево, чтобы вытянуть вторую страницу'
       }
     >
       <div
         className={`split-corner-handle ${isSplit ? 'is-active' : ''} ${
-          isDragging ? 'is-dragging' : ''
+          isPointerDown ? 'is-dragging' : ''
         }`}
-        onMouseDown={handleMouseDown}
-        onClick={onToggleSplit}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         aria-label="Разделить экран"
       >
         <svg
