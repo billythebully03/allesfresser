@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, MouseEvent, KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, MouseEvent, KeyboardEvent, PointerEvent } from 'react'
 import {
   ChapterItem,
   getChapterDisplayTitle,
@@ -22,9 +22,11 @@ interface EditingTarget {
 
 interface SidebarProps {
   isOpen: boolean
+  width: number
   chapters: ChapterItem[]
   activePageId: string
   onToggle: () => void
+  onWidthChange: (newWidth: number) => void
   onToggleChapter: (chapterId: string) => void
   onSelectPage: (chapterId: string, pageId: string) => void
   onAddChapter: () => void
@@ -39,9 +41,11 @@ interface SidebarProps {
 
 export function Sidebar({
   isOpen,
+  width,
   chapters,
   activePageId,
   onToggle,
+  onWidthChange,
   onToggleChapter,
   onSelectPage,
   onAddChapter,
@@ -58,6 +62,9 @@ export function Sidebar({
   const [editingTarget, setEditingTarget] = useState<EditingTarget | null>(null)
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const isResizingRef = useRef(false)
+  const startXRef = useRef(0)
+  const startWidthRef = useRef(width)
 
   useEffect(() => {
     if (editingTarget && inputRef.current) {
@@ -65,6 +72,26 @@ export function Sidebar({
       inputRef.current.select()
     }
   }, [editingTarget])
+
+  const handleResizePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    isResizingRef.current = true
+    startXRef.current = e.clientX
+    startWidthRef.current = width
+  }
+
+  const handleResizePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!isResizingRef.current) return
+    const delta = e.clientX - startXRef.current
+    const nextWidth = Math.max(210, Math.min(420, startWidthRef.current + delta))
+    onWidthChange(nextWidth)
+  }
+
+  const handleResizePointerUp = (e: PointerEvent<HTMLDivElement>) => {
+    if (!isResizingRef.current) return
+    isResizingRef.current = false
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
 
   const handleContextMenu = (
     e: MouseEvent,
@@ -168,33 +195,56 @@ export function Sidebar({
   }>
 
   return (
-    <aside className={`sidebar ${isOpen ? '' : 'is-collapsed'}`}>
-      <div className="sidebar-header">
-        <span className="brand-title">allesfresser</span>
-        <Tooltip label="Скрыть меню" shortcut={{ mac: '⌘B', win: 'Ctrl+B' }}>
-          <button
-            className="sidebar-toggle-btn"
-            onClick={onToggle}
-            aria-label="Скрыть меню"
-          >
-            <svg
-              className="icon-default"
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+    <aside
+      className={`sidebar ${isOpen ? '' : 'is-collapsed'}`}
+      style={{ width: isOpen ? `${width}px` : 0 }}
+    >
+      <div className="sidebar-inner">
+        <div className="sidebar-header">
+          <span className="brand-title">allesfresser</span>
+          <Tooltip label="Скрыть меню" shortcut={{ mac: '⌘B', win: 'Ctrl+B' }}>
+            <button
+              className="sidebar-toggle-btn"
+              onClick={onToggle}
+              aria-label="Скрыть меню"
             >
-              <rect width="18" height="18" x="3" y="3" rx="3" />
-              <path d="M9 3v18" />
-            </svg>
+              <svg
+                className="icon-default"
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect width="18" height="18" x="3" y="3" rx="3" />
+                <path d="M9 3v18" />
+              </svg>
+              <svg
+                className="icon-hover"
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+            </button>
+          </Tooltip>
+        </div>
+
+        <div className="sidebar-search-container">
+          <div className="sidebar-search-box">
             <svg
-              className="icon-hover"
-              width="17"
-              height="17"
+              className="search-icon"
+              width="13"
+              height="13"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -202,203 +252,192 @@ export function Sidebar({
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="m15 18-6-6 6-6" />
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
             </svg>
-          </button>
-        </Tooltip>
-      </div>
-
-      <div className="sidebar-search-container">
-        <div className="sidebar-search-box">
-          <svg
-            className="search-icon"
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <input
-            className="sidebar-search-input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Главы, страницы, слова..."
-            spellCheck={false}
-          />
-          {searchQuery && (
-            <button
-              className="search-clear-btn"
-              onClick={() => setSearchQuery('')}
-              aria-label="Очистить поиск"
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            <input
+              className="sidebar-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Главы, страницы, слова..."
+              spellCheck={false}
+            />
+            {searchQuery && (
+              <button
+                className="search-clear-btn"
+                onClick={() => setSearchQuery('')}
+                aria-label="Очистить поиск"
               >
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
-            </button>
-          )}
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      <nav className="sidebar-nav">
-        {filteredChapters.map(({ chapter, pages, isOpen: isChapterOpen }, chIdx) => {
-          const chapterTitle = getChapterDisplayTitle(chapter, chIdx)
-          const isEditingChapter =
-            editingTarget?.type === 'chapter' && editingTarget.id === chapter.id
+        <nav className="sidebar-nav">
+          {filteredChapters.map(({ chapter, pages, isOpen: isChapterOpen }, chIdx) => {
+            const chapterTitle = getChapterDisplayTitle(chapter, chIdx)
+            const isEditingChapter =
+              editingTarget?.type === 'chapter' && editingTarget.id === chapter.id
 
-          return (
-            <div key={chapter.id} className="chapter-node">
-              <div
-                className="chapter-item"
-                onClick={() => onToggleChapter(chapter.id)}
-                onContextMenu={(e) => handleContextMenu(e, 'chapter', chapter.id)}
-              >
-                <div className="chapter-item-left">
-                  <svg
-                    className={`chevron-icon ${isChapterOpen ? 'is-expanded' : ''}`}
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                  {isEditingChapter ? (
-                    <input
-                      ref={inputRef}
-                      className="node-rename-input"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onBlur={commitRename}
-                      onKeyDown={handleKeyDown}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    <span
-                      className="chapter-title"
-                      onDoubleClick={(e) => {
-                        e.stopPropagation()
-                        startRename('chapter', chapter.id, chapter.title)
-                      }}
-                    >
-                      {chapterTitle}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {isChapterOpen && (
-                <div className="pages-list-container">
-                  <div className="pages-list">
-                    {pages.map((page, pIdx) => {
-                      const isEditingPage =
-                        editingTarget?.type === 'page' && editingTarget.id === page.id
-                      const pageDisplay = getPageDisplayTitle(
-                        page,
-                        pIdx,
-                        chapterTitle,
-                      )
-
-                      return (
-                        <div
-                          key={page.id}
-                          className={`page-item ${
-                            page.id === activePageId ? 'is-active' : ''
-                          }`}
-                          onClick={() => onSelectPage(chapter.id, page.id)}
-                          onContextMenu={(e) =>
-                            handleContextMenu(e, 'page', chapter.id, page.id)
-                          }
-                        >
-                          {isEditingPage ? (
-                            <input
-                              ref={inputRef}
-                              className="node-rename-input"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onBlur={commitRename}
-                              onKeyDown={handleKeyDown}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span
-                              className="page-title"
-                              onDoubleClick={(e) => {
-                                e.stopPropagation()
-                                startRename('page', page.id, page.title)
-                              }}
-                            >
-                              {pageDisplay}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  <button
-                    className="add-page-button"
-                    onClick={() => onAddPage(chapter.id)}
-                  >
+            return (
+              <div key={chapter.id} className="chapter-node">
+                <div
+                  className="chapter-item"
+                  onClick={() => onToggleChapter(chapter.id)}
+                  onContextMenu={(e) => handleContextMenu(e, 'chapter', chapter.id)}
+                >
+                  <div className="chapter-item-left">
                     <svg
+                      className={`chevron-icon ${isChapterOpen ? 'is-expanded' : ''}`}
                       width="12"
                       height="12"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="2"
+                      strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <path d="M12 5v14" />
-                      <path d="M5 12h14" />
+                      <path d="m9 18 6-6-6-6" />
                     </svg>
-                    <span>Добавить страницу</span>
-                  </button>
+                    {isEditingChapter ? (
+                      <input
+                        ref={inputRef}
+                        className="node-rename-input"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={commitRename}
+                        onKeyDown={handleKeyDown}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span
+                        className="chapter-title"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation()
+                          startRename('chapter', chapter.id, chapter.title)
+                        }}
+                      >
+                        {chapterTitle}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          )
-        })}
-      </nav>
 
-      <div className="sidebar-footer">
-        <button className="add-chapter-btn" onClick={onAddChapter}>
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
-          </svg>
-          <span>Новая глава</span>
-        </button>
+                {isChapterOpen && (
+                  <div className="pages-list-container">
+                    <div className="pages-list">
+                      {pages.map((page, pIdx) => {
+                        const isEditingPage =
+                          editingTarget?.type === 'page' && editingTarget.id === page.id
+                        const pageDisplay = getPageDisplayTitle(
+                          page,
+                          pIdx,
+                          chapterTitle,
+                        )
+
+                        return (
+                          <div
+                            key={page.id}
+                            className={`page-item ${
+                              page.id === activePageId ? 'is-active' : ''
+                            }`}
+                            onClick={() => onSelectPage(chapter.id, page.id)}
+                            onContextMenu={(e) =>
+                              handleContextMenu(e, 'page', chapter.id, page.id)
+                            }
+                          >
+                            {isEditingPage ? (
+                              <input
+                                ref={inputRef}
+                                className="node-rename-input"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onBlur={commitRename}
+                                onKeyDown={handleKeyDown}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <span
+                                className="page-title"
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation()
+                                  startRename('page', page.id, page.title)
+                                }}
+                              >
+                                {pageDisplay}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <button
+                      className="add-page-button"
+                      onClick={() => onAddPage(chapter.id)}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
+                      </svg>
+                      <span>Добавить страницу</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </nav>
+
+        <div className="sidebar-footer">
+          <button className="add-chapter-btn" onClick={onAddChapter}>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+            <span>Новая глава</span>
+          </button>
+        </div>
       </div>
+
+      <div
+        className="sidebar-resizer"
+        onPointerDown={handleResizePointerDown}
+        onPointerMove={handleResizePointerMove}
+        onPointerUp={handleResizePointerUp}
+      />
 
       {contextTarget && (
         <ContextMenu
