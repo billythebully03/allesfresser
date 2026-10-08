@@ -230,7 +230,6 @@ body,
 
 .tooltip-popover {
   position: fixed;
-  transform: translateX(-50%);
   background-color: rgba(30, 30, 32, 0.94);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
