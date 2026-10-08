@@ -25,7 +25,7 @@ export function TrashModal({
     setTimeout(() => {
       setIsOpen(false)
       setIsClosing(false)
-    }, 180)
+    }, 220)
   }
 
   const handleToggle = () => {
@@ -91,7 +91,7 @@ export function TrashModal({
       {isOpen && (
         <div
           ref={modalRef}
-          className={`trash-finder-window ${isClosing ? 'is-closing' : 'is-opening'}`}
+          className={`trash-finder-window ${isClosing ? 'is-scaling-down' : 'is-scaling-up'}`}
         >
           <div className="trash-finder-header">
             <div className="trash-finder-header-left">
