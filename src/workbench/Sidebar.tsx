@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect, MouseEvent, KeyboardEvent } from 'react'
-import { ChapterItem, getChapterTitle } from '@/entities/document/types'
+import {
+  ChapterItem,
+  getChapterDisplayTitle,
+  getPageDisplayTitle,
+} from '@/entities/document/types'
 import { Tooltip } from '@/shared/ui/Tooltip'
 import { ContextMenu } from '@/shared/ui/ContextMenu'
 
@@ -80,7 +84,7 @@ export function Sidebar({
 
   const startRename = (type: 'chapter' | 'page', id: string, initialTitle: string) => {
     setEditingTarget({ type, id })
-    setEditValue(initialTitle === 'Без названия' ? '' : initialTitle)
+    setEditValue(initialTitle)
     setContextTarget(null)
   }
 
@@ -171,8 +175,8 @@ export function Sidebar({
       </div>
 
       <nav className="sidebar-nav">
-        {chapters.map((chapter) => {
-          const displayChapterTitle = getChapterTitle(chapter)
+        {chapters.map((chapter, chIdx) => {
+          const chapterTitle = getChapterDisplayTitle(chapter, chIdx)
           const isEditingChapter =
             editingTarget?.type === 'chapter' && editingTarget.id === chapter.id
 
@@ -212,16 +216,16 @@ export function Sidebar({
                       className="chapter-title"
                       onDoubleClick={(e) => {
                         e.stopPropagation()
-                        startRename('chapter', chapter.id, displayChapterTitle)
+                        startRename('chapter', chapter.id, chapter.title)
                       }}
                     >
-                      {displayChapterTitle}
+                      {chapterTitle}
                     </span>
                   )}
                 </div>
                 <Tooltip label="Добавить страницу">
                   <button
-                    className="node-action-btn"
+                    className="chapter-quick-add"
                     onClick={(e) => {
                       e.stopPropagation()
                       onAddPage(chapter.id)
@@ -247,10 +251,14 @@ export function Sidebar({
 
               {chapter.isOpen && (
                 <div className="pages-list">
-                  {chapter.pages.map((page) => {
+                  {chapter.pages.map((page, pIdx) => {
                     const isEditingPage =
                       editingTarget?.type === 'page' && editingTarget.id === page.id
-                    const displayPageTitle = page.title.trim() || 'Без названия'
+                    const pageDisplay = getPageDisplayTitle(
+                      page,
+                      pIdx,
+                      chapterTitle,
+                    )
 
                     return (
                       <div
@@ -278,15 +286,35 @@ export function Sidebar({
                             className="page-title"
                             onDoubleClick={(e) => {
                               e.stopPropagation()
-                              startRename('page', page.id, displayPageTitle)
+                              startRename('page', page.id, page.title)
                             }}
                           >
-                            {displayPageTitle}
+                            {pageDisplay}
                           </span>
                         )}
                       </div>
                     )
                   })}
+
+                  <button
+                    className="add-page-button"
+                    onClick={() => onAddPage(chapter.id)}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 5v14" />
+                      <path d="M5 12h14" />
+                    </svg>
+                    <span>Добавить страницу</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -338,11 +366,7 @@ export function Sidebar({
                   (c) => c.id === contextTarget.chapterId,
                 )
                 if (targetChapter) {
-                  startRename(
-                    'chapter',
-                    targetChapter.id,
-                    getChapterTitle(targetChapter),
-                  )
+                  startRename('chapter', targetChapter.id, targetChapter.title)
                 }
               } else if (contextTarget.pageId) {
                 const targetChapter = chapters.find(
@@ -352,11 +376,7 @@ export function Sidebar({
                   (p) => p.id === contextTarget.pageId,
                 )
                 if (targetPage) {
-                  startRename(
-                    'page',
-                    targetPage.id,
-                    targetPage.title || 'Без названия',
-                  )
+                  startRename('page', targetPage.id, targetPage.title)
                 }
               }
             }}
