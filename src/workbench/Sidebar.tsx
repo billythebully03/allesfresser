@@ -25,6 +25,8 @@ interface SidebarProps {
   width: number
   chapters: ChapterItem[]
   activePageId: string
+  secondaryPageId?: string | null
+  isSplit?: boolean
   onToggle: () => void
   onWidthChange: (newWidth: number) => void
   onToggleChapter: (chapterId: string) => void
@@ -45,6 +47,8 @@ export function Sidebar({
   width,
   chapters,
   activePageId,
+  secondaryPageId,
+  isSplit = false,
   onToggle,
   onWidthChange,
   onToggleChapter,
@@ -370,13 +374,15 @@ export function Sidebar({
                           pIdx,
                           chapterTitle,
                         )
+                        const isCurrentActive = page.id === activePageId
+                        const isSecondarySplit = isSplit && page.id === secondaryPageId
 
                         return (
                           <div
                             key={page.id}
                             className={`page-item ${
-                              page.id === activePageId ? 'is-active' : ''
-                            }`}
+                              isCurrentActive ? 'is-active' : ''
+                            } ${isSecondarySplit ? 'is-secondary-split-dashed' : ''}`}
                             onClick={() => onSelectPage(chapter.id, page.id)}
                             onContextMenu={(e) =>
                               handleContextMenu(e, 'page', chapter.id, page.id)
