@@ -13,14 +13,22 @@ export interface ChapterItem {
   updatedAt: number
 }
 
-export interface TrashItem {
-  id: string
-  type: 'chapter' | 'page'
-  title: string
-  deletedAt: number
-  data: ChapterItem | PageItem
-  parentChapterId?: string
-}
+export type TrashItem =
+  | {
+      id: string
+      type: 'chapter'
+      title: string
+      deletedAt: number
+      chapterData: ChapterItem
+    }
+  | {
+      id: string
+      type: 'page'
+      title: string
+      deletedAt: number
+      chapterId: string
+      pageData: PageItem
+    }
 
 export function getChapterDisplayTitle(
   chapter: ChapterItem,
