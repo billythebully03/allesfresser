@@ -33,6 +33,7 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
 export function WorkbenchLayout() {
   const [sidebarWidth, setSidebarWidth] = useState(250)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isRailOpen, setIsRailOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'canvas' | 'settings'>('canvas')
   const [isSplit, setIsSplit] = useState(false)
   const [leftPercent, setLeftPercent] = useState(100)
@@ -357,15 +358,13 @@ export function WorkbenchLayout() {
     setSecondaryDraft(null)
 
     if (isSplit) {
-      const activeIsPrimary = activeCursorPageId === primaryPage?.id
-      if (activeIsPrimary && primaryPage) {
-        setViewBasePageId(primaryPage.id)
-        setActiveCursorPageId(newPage.id)
-      } else {
-        const prevId = secondaryPage ? secondaryPage.id : primaryPage?.id
-        if (prevId) {
-          setViewBasePageId(prevId)
+      if (activeCursorPageId === effectiveSecondaryPage.id) {
+        if (secondaryPage) {
+          setViewBasePageId(secondaryPage.id)
         }
+        setActiveCursorPageId(newPage.id)
+      } else if (primaryPage) {
+        setViewBasePageId(primaryPage.id)
         setActiveCursorPageId(newPage.id)
       }
     } else {
@@ -566,6 +565,15 @@ export function WorkbenchLayout() {
     setTrashItems([])
   }
 
+  const handleSidebarWidthChange = (newWidth: number) => {
+    setSidebarWidth(newWidth)
+    if (newWidth >= 285 && !isRailOpen) {
+      setIsRailOpen(true)
+    } else if (newWidth < 285 && isRailOpen) {
+      setIsRailOpen(false)
+    }
+  }
+
   const currentlyFocusedPage = activeCursorPageId === effectiveSecondaryPage.id
     ? effectiveSecondaryPage
     : primaryPage
@@ -576,17 +584,16 @@ export function WorkbenchLayout() {
     : 0
 
   const secondaryWidth = 100 - leftPercent
-  const isRailVisible = sidebarWidth >= 285
 
   return (
     <div
-      className={`workbench-root ${isRailVisible ? 'has-rail' : ''} ${
+      className={`workbench-root ${isRailOpen ? 'has-rail' : ''} ${
         !isSidebarOpen ? 'is-sidebar-hidden' : ''
       }`}
     >
       <div
-        className={`tab-rail ${isRailVisible ? 'is-visible' : ''} ${
-          isSidebarOpen ? 'is-on-light' : 'is-on-dark'
+        className={`tab-rail ${isRailOpen ? 'is-visible' : ''} ${
+          isSidebarOpen ? 'is-sidebar-open' : 'is-sidebar-closed'
         }`}
       >
         <div className="tab-rail-top">
@@ -648,7 +655,7 @@ export function WorkbenchLayout() {
         chapters={chapters}
         activePageId={activeCursorPageId}
         onToggle={() => setIsSidebarOpen(false)}
-        onWidthChange={setSidebarWidth}
+        onWidthChange={handleSidebarWidthChange}
         onToggleChapter={handleToggleChapter}
         onSelectPage={handleSelectPage}
         onAddChapter={handleAddChapter}
