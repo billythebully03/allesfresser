@@ -7,13 +7,19 @@ export interface PageItem {
 
 export interface ChapterItem {
   id: string
-  title: string
+  customTitle?: string
   isOpen: boolean
   pages: PageItem[]
   updatedAt: number
 }
 
-export function extractTitle(content: string, fallback = 'Без названия'): string {
-  const firstLine = content.trim().split('\n')[0]?.trim()
-  return firstLine || fallback
+export function getChapterTitle(chapter: ChapterItem): string {
+  if (chapter.customTitle && chapter.customTitle.trim().length > 0) {
+    return chapter.customTitle
+  }
+  const firstPage = chapter.pages[0]
+  if (firstPage && firstPage.title.trim().length > 0) {
+    return firstPage.title
+  }
+  return 'Без названия'
 }
