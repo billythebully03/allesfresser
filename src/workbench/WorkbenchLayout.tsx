@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar'
 import { EditorArea } from './EditorArea'
 import { StatusBar } from './StatusBar'
 import { TrashModal } from './TrashModal'
+import { ButterflyInspector, TextSelectionInfo } from './ButterflyInspector'
 
 const INITIAL_CHAPTERS: ChapterItem[] = [
   {
@@ -19,12 +20,14 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
         title: 'Начало пути',
         content: 'В ту ночь шел дождь. Они встретились у моста...',
         updatedAt: Date.now(),
+        status: 'draft',
       },
       {
         id: 'pg-2',
         title: 'Тени на воде',
         content: 'Фонари отражались в мокром асфальте. Он сделал шаг вперед...',
         updatedAt: Date.now(),
+        status: 'in_progress',
       },
     ],
   },
@@ -33,6 +36,7 @@ const INITIAL_CHAPTERS: ChapterItem[] = [
 export function WorkbenchLayout() {
   const [sidebarWidth, setSidebarWidth] = useState(250)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false)
   const [isRailOpen, setIsRailOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'canvas' | 'settings'>('canvas')
   const [isSplit, setIsSplit] = useState(false)
@@ -45,20 +49,39 @@ export function WorkbenchLayout() {
   const [secondaryDraft, setSecondaryDraft] = useState<PageItem | null>(null)
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const [selectionInfo, setSelectionInfo] = useState<TextSelectionInfo | null>(null)
+  const [openDropdownChapterId, setOpenDropdownChapterId] = useState<string | null>(null)
+
   const isDraggingDividerRef = useRef(false)
   const islandRef = useRef<HTMLElement>(null)
   const draggedTabIdxRef = useRef<number | null>(null)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b' && !e.altKey) {
         e.preventDefault()
         setIsSidebarOpen((prev) => !prev)
+      } else if (
+        ((e.metaKey && e.altKey) || (e.ctrlKey && e.altKey)) &&
+        e.key.toLowerCase() === 'b'
+      ) {
+        e.preventDefault()
+        setIsInspectorOpen((prev) => !prev)
+      }
+    }
+
+    const handleClickOutside = (e: globalThis.MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.chapter-tab-group')) {
+        setOpenDropdownChapterId(null)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('mousedown', handleClickOutside)
+    }
   }, [])
 
   let primaryPage: PageItem | undefined
@@ -333,6 +356,7 @@ export function WorkbenchLayout() {
           title: '',
           content: '',
           updatedAt: Date.now(),
+          status: 'draft',
         },
       ],
     }
@@ -348,6 +372,7 @@ export function WorkbenchLayout() {
       title: '',
       content: '',
       updatedAt: Date.now(),
+      status: 'draft',
     }
     setChapters((prev) =>
       prev.map((ch) =>
@@ -432,6 +457,7 @@ export function WorkbenchLayout() {
               title: '',
               content: '',
               updatedAt: Date.now(),
+              status: 'draft',
             },
           ],
         }
@@ -505,6 +531,7 @@ export function WorkbenchLayout() {
             title: '',
             content: '',
             updatedAt: Date.now(),
+            status: 'draft',
           }
           if (viewBasePageId === pageId) {
             setSecondaryDraft(null)
@@ -585,6 +612,45 @@ export function WorkbenchLayout() {
     }
   }
 
+  const handleUpdateChapterDescription = (chapterId: string, description: string) => {
+    setChapters((prev) =>
+      prev.map((ch) => (ch.id === chapterId ? { ...ch, description } : ch)),
+    )
+  }
+
+  const handleUpdatePageNote = (pageId: string, note: string) => {
+    updatePage(pageId, { note })
+  }
+
+  const handleUpdatePageStatus = (
+    pageId: string,
+    status: 'draft' | 'in_progress' | 'done',
+  ) => {
+    updatePage(pageId, { status })
+  }
+
+  const handleAddSelectionNote = (pageId: string, text: string, noteText: string) => {
+    setChapters((prev) =>
+      prev.map((ch) => ({
+        ...ch,
+        pages: ch.pages.map((p) => {
+          if (p.id !== pageId) return p
+          const existing = p.selectionNotes || []
+          const newNote = {
+            id: `sn-${Date.now()}`,
+            text,
+            note: noteText,
+            createdAt: Date.now(),
+          }
+          return {
+            ...p,
+            selectionNotes: [newNote, ...existing],
+          }
+        }),
+      })),
+    )
+  }
+
   const currentlyFocusedPage = activeCursorPageId === effectiveSecondaryPage.id
     ? effectiveSecondaryPage
     : primaryPage
@@ -600,7 +666,7 @@ export function WorkbenchLayout() {
     <div
       className={`workbench-root ${isRailOpen ? 'has-rail' : ''} ${
         !isSidebarOpen ? 'is-sidebar-hidden' : ''
-      }`}
+      } ${isInspectorOpen ? 'has-inspector' : ''}`}
     >
       <div
         className={`tab-rail ${isRailOpen ? 'is-visible' : ''} ${
@@ -708,30 +774,23 @@ export function WorkbenchLayout() {
                 >
                   <svg
                     className="icon-default"
-                    width="17"
-                    height="17"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
                   >
-                    <rect width="18" height="18" x="3" y="3" rx="3" />
-                    <path d="M9 3v18" />
+                    <path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z" />
+                    <path d="M3 4a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
                   </svg>
                   <svg
                     className="icon-hover"
-                    width="17"
-                    height="17"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
                   >
-                    <path d="m9 18 6-6-6-6" />
+                    <path d="M14 2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2z" />
+                    <path d="M11 4a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1z" />
                   </svg>
                 </button>
               </Tooltip>
@@ -740,6 +799,7 @@ export function WorkbenchLayout() {
             <div className="chapter-tabs-list">
               {chapters.map((ch, idx) => {
                 const isChapterActive = ch.id === primaryChapter?.id
+                const isDropdownOpen = openDropdownChapterId === ch.id
 
                 return (
                   <div
@@ -778,38 +838,66 @@ export function WorkbenchLayout() {
                       <span className="chapter-tab-title">{ch.title || `Глава ${idx + 1}`}</span>
                     </button>
 
-                    {isChapterActive && (
-                      <div className="chapter-pages-strip">
-                        {ch.pages.map((p, pIdx) => {
-                          const isPageActive = p.id === activeCursorPageId
-                          return (
-                            <button
-                              key={p.id}
-                              className={`page-tab ${isPageActive ? 'is-active-page' : ''}`}
-                              style={{ animationDelay: `${pIdx * 24}ms` }}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (isSplit) {
-                                  if (secondaryPage && p.id === secondaryPage.id) {
-                                    setActiveCursorPageId(secondaryPage.id)
-                                    return
+                    <button
+                      className={`chapter-tab-pages-trigger ${isDropdownOpen ? 'is-open' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setOpenDropdownChapterId(isDropdownOpen ? null : ch.id)
+                      }}
+                    >
+                      <span>Страницы</span>
+                      <svg
+                        className={`chapter-tab-trigger-chevron ${isDropdownOpen ? 'is-expanded' : ''}`}
+                        width="10"
+                        height="10"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
+                        <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708" />
+                      </svg>
+                    </button>
+
+                    {isDropdownOpen && (
+                      <div className="chapter-tab-pages-dropdown">
+                        <div className="chapter-tab-pages-scroll">
+                          {ch.pages.map((p, pIdx) => {
+                            const isPageActive = p.id === activeCursorPageId
+                            return (
+                              <div
+                                key={p.id}
+                                className={`chapter-dropdown-page-row ${
+                                  isPageActive ? 'is-active-page' : ''
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (isSplit) {
+                                    if (secondaryPage && p.id === secondaryPage.id) {
+                                      setActiveCursorPageId(secondaryPage.id)
+                                      setOpenDropdownChapterId(null)
+                                      return
+                                    }
+                                    if (primaryPage && p.id === primaryPage.id) {
+                                      setActiveCursorPageId(primaryPage.id)
+                                      setOpenDropdownChapterId(null)
+                                      return
+                                    }
                                   }
-                                  if (primaryPage && p.id === primaryPage.id) {
-                                    setActiveCursorPageId(primaryPage.id)
-                                    return
-                                  }
-                                }
-                                setSecondaryDraft(null)
-                                setViewBasePageId(p.id)
-                                setActiveCursorPageId(p.id)
-                              }}
-                            >
-                              <span className="page-tab-title">
-                                {p.title || `Стр ${pIdx + 1}`}
-                              </span>
-                            </button>
-                          )
-                        })}
+                                  setSecondaryDraft(null)
+                                  setViewBasePageId(p.id)
+                                  setActiveCursorPageId(p.id)
+                                  setOpenDropdownChapterId(null)
+                                }}
+                              >
+                                <span className="chapter-dropdown-page-index">
+                                  {pIdx + 1}
+                                </span>
+                                <span className="chapter-dropdown-page-title">
+                                  {p.title || `Страница ${pIdx + 1}`}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -840,7 +928,13 @@ export function WorkbenchLayout() {
             }`}
           >
             <div
-              className="workspace-pane"
+              className={`workspace-pane ${
+                isSplit
+                  ? activeCursorPageId === primaryPage?.id
+                    ? 'is-focused-split-active'
+                    : 'is-split-passive-dashed'
+                  : ''
+              }`}
               style={{
                 width: `${leftPercent}%`,
               }}
@@ -858,6 +952,7 @@ export function WorkbenchLayout() {
                 onTitleChange={handlePrimaryTitleChange}
                 onContentChange={handlePrimaryContentChange}
                 onCursorMove={(line, column) => setCursor({ line, column })}
+                onSelectionChange={setSelectionInfo}
               />
             </div>
 
@@ -873,7 +968,13 @@ export function WorkbenchLayout() {
                   <div className="divider-line" />
                 </div>
                 <div
-                  className="workspace-pane workspace-pane-secondary"
+                  className={`workspace-pane workspace-pane-secondary ${
+                    isSplit
+                      ? activeCursorPageId === effectiveSecondaryPage.id
+                        ? 'is-focused-split-active'
+                        : 'is-split-passive-dashed'
+                      : ''
+                  }`}
                   style={{
                     width: `${secondaryWidth}%`,
                     opacity: Math.min(1, secondaryWidth / 10),
@@ -892,6 +993,7 @@ export function WorkbenchLayout() {
                     onTitleChange={handleSecondaryTitleChange}
                     onContentChange={handleSecondaryContentChange}
                     onCursorMove={(line, column) => setCursor({ line, column })}
+                    onSelectionChange={setSelectionInfo}
                   />
                 </div>
               </>
@@ -900,6 +1002,17 @@ export function WorkbenchLayout() {
         </main>
         <StatusBar wordCount={wordCount} cursor={cursor} />
       </div>
+
+      <ButterflyInspector
+        isOpen={isInspectorOpen}
+        activeChapter={primaryChapter}
+        activePage={currentlyFocusedPage}
+        selectionInfo={selectionInfo}
+        onUpdateChapterDescription={handleUpdateChapterDescription}
+        onUpdatePageNote={handleUpdatePageNote}
+        onUpdatePageStatus={handleUpdatePageStatus}
+        onAddSelectionNote={handleAddSelectionNote}
+      />
     </div>
   )
 }
