@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChapterItem, PageItem, PageStatus, SelectionNote } from '@/entities/document/types'
 
 export interface TextSelectionInfo {
@@ -21,37 +21,68 @@ interface ButterflyInspectorProps {
   onClearSelection: () => void
 }
 
+const STATUS_ORDER: PageStatus[] = ['none', 'draft', 'in_progress', 'done']
+
 function RollerValue({
   value,
+  direction = 'down',
+  isInitial = false,
   className = '',
 }: {
   value: string | number
+  direction?: 'down' | 'up'
+  isInitial?: boolean
   className?: string
 }) {
   const [display, setDisplay] = useState<{
     current: string | number
     prev: string | number | null
+    animDirection: 'down' | 'up'
+    initialMount: boolean
   }>({
     current: value,
     prev: null,
+    animDirection: direction,
+    initialMount: isInitial,
   })
 
   useEffect(() => {
     if (value !== display.current) {
-      setDisplay({ prev: display.current, current: value })
+      setDisplay({
+        prev: display.current,
+        current: value,
+        animDirection: direction,
+        initialMount: false,
+      })
       const timer = setTimeout(() => {
-        setDisplay({ prev: null, current: value })
-      }, 420)
+        setDisplay((prev) => ({ ...prev, prev: null }))
+      }, 480)
       return () => clearTimeout(timer)
     }
-  }, [value, display.current])
+  }, [value, direction, display.current])
 
   return (
     <div className={`roller-container ${className}`}>
       {display.prev !== null && (
-        <span className="roller-item is-prev">{display.prev}</span>
+        <span
+          className={`roller-item ${
+            display.animDirection === 'up' ? 'is-exit-to-top' : 'is-exit-to-bottom'
+          }`}
+        >
+          {display.prev}
+        </span>
       )}
-      <span className={`roller-item ${display.prev !== null ? 'is-new' : 'is-enter'}`}>
+      <span
+        className={`roller-item ${
+          display.prev !== null
+            ? display.animDirection === 'up'
+              ? 'is-enter-from-bottom'
+              : 'is-enter-from-top'
+            : display.initialMount
+            ? 'is-appear-drop'
+            : ''
+        }`}
+      >
         {display.current}
       </span>
     </div>
@@ -75,6 +106,9 @@ export function ButterflyInspector({
   const [fallingCard, setFallingCard] = useState<SelectionNote | null>(null)
   const [showToast, setShowToast] = useState(false)
   const [isToastLeaving, setIsToastLeaving] = useState(false)
+
+  const prevStatusRef = useRef<PageStatus>(activePage?.status || 'none')
+  const [statusDirection, setStatusDirection] = useState<'down' | 'up'>('down')
 
   const chapterTotalWords = activeChapter
     ? activeChapter.pages.reduce((acc, p) => {
@@ -139,6 +173,22 @@ export function ButterflyInspector({
     }
   }, [showToast, isToastLeaving])
 
+  const handleStatusSelectChange = (newStatus: PageStatus) => {
+    if (!activePage) return
+    const currentStatus = activePage.status || 'none'
+    const prevIdx = STATUS_ORDER.indexOf(currentStatus)
+    const nextIdx = STATUS_ORDER.indexOf(newStatus)
+
+    if (prevIdx < nextIdx) {
+      setStatusDirection('up')
+    } else {
+      setStatusDirection('down')
+    }
+
+    prevStatusRef.current = newStatus
+    onUpdatePageStatus(activePage.id, newStatus)
+  }
+
   const mode = selectionInfo && selectionInfo.text.trim().length > 0
     ? 'selection'
     : activePage
@@ -155,6 +205,8 @@ export function ButterflyInspector({
     if (st === 'draft') return 'Черновик'
     return 'Без статуса'
   }
+
+  const contentIdentityKey = `${mode}-${activePage?.id || activeChapter?.id || 'none'}-${Boolean(selectionInfo)}`
 
   return (
     <>
@@ -177,25 +229,33 @@ export function ButterflyInspector({
             >
               <path d="M3.468 1.948C5.303 3.325 7.276 6.118 8 7.616c.725-1.498 2.698-4.29 4.532-5.668C13.855.955 16 .186 16 2.632c0 .489-.28 4.105-.444 4.692-.572 2.04-2.653 2.561-4.504 2.246 3.236.551 4.06 2.375 2.281 4.2-3.376 3.464-4.852-.87-5.23-1.98-.07-.204-.103-.3-.103-.218 0-.081-.033.014-.102.218-.379 1.11-1.855 5.444-5.231 1.98-1.778-1.825-.955-3.65 2.28-4.2-1.85.315-3.932-.205-4.503-2.246C.28 6.737 0 3.12 0 2.632 0 .186 2.145.955 3.468 1.948" />
             </svg>
-            <span className="butterfly-brand">Баттерфляй</span>
+            <span className="butterfly-brand">Баттерфлай</span>
           </div>
           <p className="butterfly-intro">
-            Созданный специально для упрощения работы, Баттерфляй выполняет роль инспектора вашего проекта
+            Созданный специально для упрощения работы, Баттерфлай выполняет роль инспектора вашего проекта
           </p>
         </div>
 
-        <div className="butterfly-body" key={mode}>
+        <div className="butterfly-body" key={contentIdentityKey}>
           {mode === 'selection' && selectionInfo ? (
             <div className="butterfly-view-content">
               <div className="butterfly-section-header">Выделенный фрагмент</div>
 
               <div className="butterfly-stat-grid">
                 <div className="butterfly-stat-card">
-                  <RollerValue value={selectionInfo.wordCount} className="butterfly-stat-value" />
+                  <RollerValue
+                    value={selectionInfo.wordCount}
+                    isInitial
+                    className="butterfly-stat-value"
+                  />
                   <span className="butterfly-stat-label">Слов</span>
                 </div>
                 <div className="butterfly-stat-card">
-                  <RollerValue value={selectionInfo.charCount} className="butterfly-stat-value" />
+                  <RollerValue
+                    value={selectionInfo.charCount}
+                    isInitial
+                    className="butterfly-stat-value"
+                  />
                   <span className="butterfly-stat-label">Символов</span>
                 </div>
               </div>
@@ -260,7 +320,11 @@ export function ButterflyInspector({
 
               <div className="butterfly-stat-grid">
                 <div className="butterfly-stat-card">
-                  <RollerValue value={pageWords} className="butterfly-stat-value" />
+                  <RollerValue
+                    value={pageWords}
+                    isInitial
+                    className="butterfly-stat-value"
+                  />
                   <span className="butterfly-stat-label">Слов</span>
                 </div>
                 <div
@@ -276,6 +340,8 @@ export function ButterflyInspector({
                 >
                   <RollerValue
                     value={getStatusLabel(activePage.status)}
+                    direction={statusDirection}
+                    isInitial
                     className="butterfly-stat-value"
                   />
                   <span className="butterfly-stat-label">Статус</span>
@@ -296,10 +362,7 @@ export function ButterflyInspector({
                   }`}
                   value={activePage.status || 'none'}
                   onChange={(e) =>
-                    onUpdatePageStatus(
-                      activePage.id,
-                      e.target.value as PageStatus,
-                    )
+                    handleStatusSelectChange(e.target.value as PageStatus)
                   }
                 >
                   <option value="none">Без статуса</option>
@@ -380,11 +443,19 @@ export function ButterflyInspector({
 
               <div className="butterfly-stat-grid">
                 <div className="butterfly-stat-card">
-                  <RollerValue value={activeChapter.pages.length} className="butterfly-stat-value" />
+                  <RollerValue
+                    value={activeChapter.pages.length}
+                    isInitial
+                    className="butterfly-stat-value"
+                  />
                   <span className="butterfly-stat-label">Страниц</span>
                 </div>
                 <div className="butterfly-stat-card">
-                  <RollerValue value={chapterTotalWords} className="butterfly-stat-value" />
+                  <RollerValue
+                    value={chapterTotalWords}
+                    isInitial
+                    className="butterfly-stat-value"
+                  />
                   <span className="butterfly-stat-label">Слов всего</span>
                 </div>
               </div>
@@ -452,7 +523,7 @@ export function ButterflyInspector({
                   onClearSelection()
                 }}
               >
-                Баттерфляе страницы
+                Баттерфлае страницы
               </button>
             </span>
           </div>
