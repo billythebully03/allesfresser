@@ -1281,7 +1281,7 @@ body,
 }
 
 .butterfly-bsky-icon {
-  color: #0285ff;
+  color: var(--text-main);
   flex-shrink: 0;
 }
 
@@ -1368,47 +1368,72 @@ body,
 
 .roller-item {
   display: inline-block;
-  will-change: transform, opacity;
+  will-change: transform;
   font-size: 15px;
   font-weight: 600;
   color: var(--text-main);
   white-space: nowrap;
 }
 
-.roller-item.is-enter {
-  animation: rollInFromTop 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+.roller-item.is-appear-drop {
+  animation: rollerDropAppearance 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.roller-item.is-prev {
+.roller-item.is-enter-from-top {
+  animation: rollerDropAppearance 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.roller-item.is-enter-from-bottom {
+  animation: rollerRiseAppearance 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.roller-item.is-exit-to-bottom {
   position: absolute;
   top: 0;
   left: 0;
-  animation: rollOutToBottom 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: rollerExitDown 0.46s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.roller-item.is-new {
-  animation: rollInFromTop 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+.roller-item.is-exit-to-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: rollerExitUp 0.46s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes rollInFromTop {
+@keyframes rollerDropAppearance {
   0% {
-    transform: translateY(-130%);
-    opacity: 0;
+    transform: translateY(-110%);
   }
   100% {
     transform: translateY(0);
-    opacity: 1;
   }
 }
 
-@keyframes rollOutToBottom {
+@keyframes rollerRiseAppearance {
   0% {
-    transform: translateY(0);
-    opacity: 1;
+    transform: translateY(110%);
   }
   100% {
-    transform: translateY(130%);
-    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rollerExitDown {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(110%);
+  }
+}
+
+@keyframes rollerExitUp {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-110%);
   }
 }
 
@@ -1804,7 +1829,7 @@ body,
 }
 
 .butterfly-bsky-empty-icon {
-  color: #0285ff;
+  color: var(--text-main);
   opacity: 0.8;
 }
 
