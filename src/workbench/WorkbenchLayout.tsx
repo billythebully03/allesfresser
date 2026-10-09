@@ -41,10 +41,10 @@ interface DropdownMenuState {
 }
 
 export function WorkbenchLayout() {
-  const [sidebarWidth, setSidebarWidth] = useState(250)
+  const [sidebarWidth, setSidebarWidth] = useState(290)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isInspectorOpen, setIsInspectorOpen] = useState(false)
-  const [isRailOpen, setIsRailOpen] = useState(false)
+  const [isRailOpen, setIsRailOpen] = useState(true)
   const [activeTab, setActiveTab] = useState<'canvas' | 'settings'>('canvas')
   const [isSplit, setIsSplit] = useState(false)
   const [leftPercent, setLeftPercent] = useState(100)
